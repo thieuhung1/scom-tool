@@ -1,0 +1,134 @@
+{
+  "version": "2026.10.15",
+  "updatedAt": "2026-10-15",
+  "knownHashes": {
+    "44d88612fea8a8f36de82e1278abb02f": {
+      "name": "EICAR-Standard-AV-Test-File",
+      "type": "Test.Malware",
+      "severity": "High",
+      "description": "Tệp kiểm tra chuẩn chống virus quốc tế EICAR."
+    },
+    "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f": {
+      "name": "EICAR-Test-Signature-SHA256",
+      "type": "Test.Malware",
+      "severity": "High",
+      "description": "Chữ ký mã băm SHA-256 tệp chuẩn thử nghiệm EICAR."
+    },
+    "09a0815e659483d6bc09fca8e559443a": {
+      "name": "WannaCry.Ransomware.Sample",
+      "type": "Ransomware",
+      "severity": "Critical",
+      "description": "Mẫu mã độc tống tiền tàn phá WannaCry mã hóa dữ liệu."
+    },
+    "512301c535c88255c9a252fdf70b7a03de0e73ae6d04b0f553232716600c5c7b": {
+      "name": "WannaCry.SHA256.Dropper",
+      "type": "Ransomware.Dropper",
+      "severity": "Critical",
+      "description": "Tệp thực thi phát tán ransomware nguy hiểm cao."
+    },
+    "c5e96a7d5c7f9d8e7b3a1a2b3c4d5e6f": {
+      "name": "XMRig.CoinMiner.Malware",
+      "type": "Trojan.CoinMiner",
+      "severity": "High",
+      "description": "Mã độc đào tiền ảo ngầm gây quá tải CPU và hỏng phần cứng."
+    },
+    "7b8c2d1e0f3a4b5c6d7e8f9a0b1c2d3e": {
+      "name": "RedLine.Stealer.Payload",
+      "type": "Trojan.PasswordStealer",
+      "severity": "Critical",
+      "description": "Trojan đánh cắp mật khẩu trình duyệt, tài khoản ngân hàng và ví điện tử."
+    },
+    "3f9b2d8e1a7c4f6a5b8c9d0e1f2a3b4c": {
+      "name": "AsyncRAT.Backdoor",
+      "type": "Backdoor.RemoteAccess",
+      "severity": "Critical",
+      "description": "Mã độc điều khiển máy tính từ xa trái phép chiếm quyền điều khiển."
+    }
+  },
+  "suspiciousDoubleExtensions": [
+    ".pdf.exe",
+    ".docx.exe",
+    ".xlsx.exe",
+    ".jpg.exe",
+    ".png.exe",
+    ".mp4.exe",
+    ".txt.exe",
+    ".zip.exe",
+    ".pdf.vbs",
+    ".docx.vbs",
+    ".jpg.vbs",
+    ".pdf.scr",
+    ".doc.scr",
+    ".txt.scr",
+    ".jpg.scr",
+    ".docx.js",
+    ".pdf.bat",
+    ".doc.cmd",
+    ".pdf.hta"
+  ],
+  "dangerousExtensions": [
+    ".exe",
+    ".scr",
+    ".vbs",
+    ".vbe",
+    ".js",
+    ".jse",
+    ".wsf",
+    ".wsh",
+    ".hta",
+    ".bat",
+    ".cmd",
+    ".ps1"
+  ],
+  "disguisedSystemProcesses": [
+    "svchost.exe",
+    "csrss.exe",
+    "lsass.exe",
+    "services.exe",
+    "smss.exe",
+    "winlogon.exe",
+    "wininit.exe",
+    "explorer.exe",
+    "taskhostw.exe",
+    "RuntimeBroker.exe",
+    "spoolsv.exe"
+  ],
+  "maliciousScriptPatterns": [
+    {
+      "pattern": "powershell.*(-enc|-encodedcommand|downloadstring|invoke-webrequest|iwr|bypass)",
+      "name": "Malicious.PowerShell.DownloadCradle",
+      "severity": "High",
+      "description": "Lệnh PowerShell tải mã độc ngầm từ internet hoặc chạy chuỗi mã hóa ẩn danh."
+    },
+    {
+      "pattern": "certutil.*(-urlcache|-split|-f)",
+      "name": "Certutil.Abuse.Downloader",
+      "severity": "High",
+      "description": "Lạm dụng tiện ích chứng chỉ Windows để tải tệp độc hại từ xa."
+    },
+    {
+      "pattern": "bitsadmin.*(/transfer|/download)",
+      "name": "Bitsadmin.Abuse.Downloader",
+      "severity": "Medium",
+      "description": "Sử dụng BITS để lén lút tải tệp thực thi vào máy."
+    },
+    {
+      "pattern": "wscript\\.shell.*run.*(temp|appdata).*(hidden|0)",
+      "name": "Hidden.Script.Execution",
+      "severity": "High",
+      "description": "Kịch bản VBScript cố tình chạy ngầm tệp thực thi trong thư mục tạm."
+    },
+    {
+      "pattern": "vssadmin.*delete.*shadows",
+      "name": "Ransomware.ShadowCopy.Deletion",
+      "severity": "Critical",
+      "description": "Hành vi đặc trưng của Ransomware cố tình xóa bản sao lưu hệ thống để ngăn phục hồi."
+    },
+    {
+      "pattern": "X5O!P%@AP\\[4\\\\PZX54\\(P\\^\\)7CC\\)7\\}\\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\\$H\\+H\\*",
+      "name": "EICAR-Test-Pattern",
+      "severity": "High",
+      "description": "Chuỗi kiểm tra chống virus chuẩn quốc tế EICAR."
+    }
+  ]
+}

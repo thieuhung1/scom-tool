@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCOM CyberShield - Bảo Vệ & Quét Dọn Virus Máy Tính</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Custom Sleek Title Bar -->
+  <header class="titlebar">
+    <div class="titlebar-drag">
+      <div class="app-logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <span class="app-title">SCOM <strong>CYBERSHIELD</strong></span>
+        <span class="app-badge">V1.0 PRO</span>
+      </div>
+    </div>
+    <div class="window-controls">
+      <button class="win-btn" id="btnMinimize" title="Thu nhỏ">
+        <svg viewBox="0 0 10 10"><line x1="0" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="win-btn" id="btnMaximize" title="Phóng to">
+        <svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="win-btn win-btn-close" id="btnClose" title="Đóng">
+        <svg viewBox="0 0 10 10"><path d="M1 1 L9 9 M9 1 L1 9" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="tab-dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Tổng Quan</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-scanner">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="22" y1="12" x2="18" y2="12"></line>
+            <line x1="6" y1="12" x2="2" y2="12"></line>
+            <line x1="12" y1="6" x2="12" y2="2"></line>
+            <line x1="12" y1="22" x2="12" y2="18"></line>
+          </svg>
+          <span>Quét Mã Độc</span>
+          <span class="threat-counter-badge" id="navThreatBadge" style="display: none;">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-processes">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+          <span>Tiến Trình Chạy</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-cleaner">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span>Dọn Dẹp Rác</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-quarantine">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Khu Cách Ly</span>
+          <span class="quarantine-count-badge" id="navQuarantineBadge">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-shield">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Khởi Động & Khiên</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="engine-status">
+          <span class="pulse-dot"></span>
+          <span>Bảo vệ hoạt động</span>
+        </div>
+        <small class="engine-ver">Cơ sở dữ liệu: 2026.10</small>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+
+      <!-- TAB 1: DASHBOARD -->
+      <section class="tab-pane active" id="tab-dashboard">
+        <div class="dashboard-hero">
+          <div class="shield-status-card" id="mainShieldCard">
+            <div class="shield-visual">
+              <div class="shield-orb" id="shieldOrb">
+                <svg viewBox="0 0 24 24" class="shield-svg" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+              </div>
+            </div>
+            <div class="shield-info">
+              <span class="status-tag" id="statusTag">AN TOÀN</span>
+              <h1 id="statusHeading">Máy Tính Đang Được Bảo Vệ</h1>
+              <p id="statusDesc">Hệ thống bảo vệ chủ động đang quét và ngăn chặn các mối đe dọa, tiến trình độc hại và tệp rác.</p>
+              <div class="quick-actions">
+                <button class="btn btn-primary" id="btnQuickScanNow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/></svg>
+                  Quét Nhanh Ngay
+                </button>
+                <button class="btn btn-secondary" id="btnQuickCleanNow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                  Dọn Dẹp Rác
+                </button>
+              </div>
+            </div>
+            <div class="security-meter-container">
+              <div class="circular-meter">
+                <svg viewBox="0 0 100 100" class="meter-svg">
+                  <circle class="meter-bg" cx="50" cy="50" r="42"></circle>
+                  <circle class="meter-progress" id="meterProgressCircle" cx="50" cy="50" r="42"></circle>
+                </svg>
+                <div class="meter-inner">
+                  <span class="meter-number" id="meterScore">100</span>
+                  <span class="meter-label">ĐIỂM AN TOÀN</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="metric-details">
+              <span class="metric-label">Tệp đã quét</span>
+              <strong class="metric-value" id="dashFilesScanned">0</strong>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon icon-red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="metric-details">
+              <span class="metric-label">Mối đe dọa phát hiện</span>
+              <strong class="metric-value" id="dashThreatsFound">0</strong>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon icon-amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="metric-details">
+              <span class="metric-label">Đã cách ly an toàn</span>
+              <strong class="metric-value" id="dashQuarantined">0</strong>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon icon-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="metric-details">
+              <span class="metric-label">Rác có thể dọn</span>
+              <strong class="metric-value" id="dashJunkSize">-- MB</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Sub-panels -->
+        <div class="dash-columns">
+          <div class="card glass-card">
+            <div class="card-header">
+              <h3>Trạng Thái Khiên Bảo Vệ Hệ Thống</h3>
+              <button class="btn btn-sm btn-ghost" id="btnRefreshOverview">Làm mới</button>
+            </div>
+            <div class="shield-list">
+              <div class="shield-row">
+                <span class="shield-status-indicator status-ok" id="statusRealTimeInd"></span>
+                <div>
+                  <strong>Bảo vệ thời gian thực (Windows Defender)</strong>
+                  <p id="txtRealtimeDesc">Đang bảo vệ máy tính khỏi các mã độc mới xâm nhập.</p>
+                </div>
+              </div>
+              <div class="shield-row">
+                <span class="shield-status-indicator status-ok" id="statusHostsInd"></span>
+                <div>
+                  <strong>Toàn vẹn tệp cấu hình Hosts</strong>
+                  <p id="txtHostsDesc">Không phát hiện hành vi chiếm quyền DNS hoặc chuyển hướng lừa đảo.</p>
+                </div>
+              </div>
+              <div class="shield-row">
+                <span class="shield-status-indicator status-ok" id="statusStartupInd"></span>
+                <div>
+                  <strong>Kiểm soát ứng dụng khởi động ngầm</strong>
+                  <p id="txtStartupDesc">Không phát hiện script độc hại tự kích hoạt cùng Windows.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card glass-card">
+            <div class="card-header">
+              <h3>Nhật Ký Bảo Mật Gần Đây</h3>
+            </div>
+            <div class="log-stream" id="dashLogStream">
+              <div class="log-item">
+                <span class="log-time">Vừa xong</span>
+                <span class="log-text">SCOM CyberShield đã khởi động và sẵn sàng bảo vệ hệ thống.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: SCANNER -->
+      <section class="tab-pane" id="tab-scanner">
+        <div class="scanner-header-card">
+          <div class="scan-mode-selector">
+            <button class="mode-card active" data-mode="quick" id="modeQuick">
+              <div class="mode-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div class="mode-meta">
+                <h4>Quét Nhanh (Quick Scan)</h4>
+                <p>Quét các khu vực xung yếu: Temp, Downloads, AppData, Startup.</p>
+              </div>
+            </button>
+
+            <button class="mode-card" data-mode="custom" id="modeCustom">
+              <div class="mode-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div class="mode-meta">
+                <h4>Quét Tùy Chọn (Custom Scan)</h4>
+                <p>Chọn thư mục cụ thể hoặc tệp khả nghi để quét sâu.</p>
+              </div>
+            </button>
+
+            <button class="mode-card" data-mode="full" id="modeFull">
+              <div class="mode-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              </div>
+              <div class="mode-meta">
+                <h4>Quét Toàn Diện (Full Scan)</h4>
+                <p>Quét sâu toàn bộ các phân vùng ổ đĩa và thư mục chương trình.</p>
+              </div>
+            </button>
+          </div>
+
+          <div class="custom-target-bar" id="customTargetBar" style="display: none;">
+            <input type="text" id="inputCustomPath" placeholder="Chưa chọn đường dẫn quét..." readonly>
+            <button class="btn btn-secondary btn-sm" id="btnSelectFolder">Chọn Thư Mục</button>
+            <button class="btn btn-secondary btn-sm" id="btnSelectFile">Chọn Tệp</button>
+          </div>
+        </div>
+
+        <!-- Radar Animation & Progress Box -->
+        <div class="scan-active-box" id="scanActiveBox">
+          <div class="radar-container" id="radarAnimation">
+            <div class="radar-sweep"></div>
+            <div class="radar-ring ring-1"></div>
+            <div class="radar-ring ring-2"></div>
+            <div class="radar-ring ring-3"></div>
+            <div class="radar-crosshair-h"></div>
+            <div class="radar-crosshair-v"></div>
+            <div class="radar-blip"></div>
+          </div>
+
+          <div class="scan-progress-details">
+            <div class="scan-status-line">
+              <span class="scan-stage" id="scanStageText">Sẵn sàng bắt đầu quét</span>
+              <span class="scan-counter-text">Đã quét: <strong id="scanFilesCount">0</strong> tệp | Mối đe dọa: <strong class="text-danger" id="scanThreatCount">0</strong></span>
+            </div>
+
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" id="scanProgressBar"></div>
+            </div>
+
+            <div class="scan-current-file">
+              <span class="scan-file-label">Đang phân tích:</span>
+              <span class="scan-file-path" id="scanCurrentPath">Chưa bắt đầu</span>
+            </div>
+
+            <div class="scan-control-buttons">
+              <button class="btn btn-primary" id="btnStartScan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Bắt Đầu Quét
+              </button>
+              <button class="btn btn-secondary" id="btnPauseScan" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                Tạm Dừng
+              </button>
+              <button class="btn btn-danger" id="btnStopScan" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16"/></svg>
+                Dừng Quét
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Threat Results Table -->
+        <div class="threat-results-card">
+          <div class="card-header">
+            <h3>Danh Sách Mối Đe Dọa Phát Hiện</h3>
+            <div class="threat-actions">
+              <button class="btn btn-sm btn-danger" id="btnQuarantineAll" style="display: none;">
+                Cách Ly Tất Cả Mối Đe Dọa
+              </button>
+            </div>
+          </div>
+
+          <div class="threat-table-container">
+            <table class="data-table" id="threatTable">
+              <thead>
+                <tr>
+                  <th>Mức Độ</th>
+                  <th>Tên Mã Độc</th>
+                  <th>Loại</th>
+                  <th>Đường Dẫn Tệp</th>
+                  <th>Hành Động</th>
+                </tr>
+              </thead>
+              <tbody id="threatTableBody">
+                <tr class="empty-row">
+                  <td colspan="5">Chưa phát hiện mối đe dọa nào. Nhấn "Bắt Đầu Quét" để phân tích an ninh máy tính.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: PROCESS MONITOR -->
+      <section class="tab-pane" id="tab-processes">
+        <div class="card glass-card">
+          <div class="card-header">
+            <div>
+              <h3>Giám Sát Tiến Trình Thời Gian Thực</h3>
+              <p class="card-sub">Phát hiện tiến trình độc hại chạy ngầm, giả mạo System32 hoặc đào coin ngốn CPU.</p>
+            </div>
+            <div class="process-controls">
+              <input type="text" id="inputSearchProcess" class="search-input" placeholder="Tìm kiếm tên tiến trình, PID...">
+              <button class="btn btn-sm btn-secondary" id="btnRefreshProcesses">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Làm Mới
+              </button>
+            </div>
+          </div>
+
+          <div class="process-table-container">
+            <table class="data-table" id="processTable">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">PID</th>
+                  <th>Tên Tiến Trình</th>
+                  <th>Đánh Giá Rủi Ro</th>
+                  <th>RAM (MB)</th>
+                  <th>Nhà Phát Hành</th>
+                  <th>Đường Dẫn Thực Thi</th>
+                  <th style="width: 140px;">Hành Động</th>
+                </tr>
+              </thead>
+              <tbody id="processTableBody">
+                <tr>
+                  <td colspan="7" class="loading-cell">Đang tải danh sách tiến trình Windows...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: SYSTEM CLEANER -->
+      <section class="tab-pane" id="tab-cleaner">
+        <div class="cleaner-hero">
+          <div class="cleaner-summary-card">
+            <div class="cleaner-metric">
+              <span class="cleaner-amount" id="cleanerTotalMB">0.00</span>
+              <span class="cleaner-unit">MB</span>
+              <p class="cleaner-subtext">Dung lượng tệp rác & bộ nhớ đệm có thể dọn dẹp</p>
+            </div>
+            <div class="cleaner-buttons">
+              <button class="btn btn-secondary" id="btnAnalyzeCleaner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Quét Tệp Rác
+              </button>
+              <button class="btn btn-primary" id="btnExecuteClean">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                Dọn Dẹp Ngay (1-Click)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cleaner-categories-grid" id="cleanerCategoriesList">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="cleaner-result-card" id="cleanResultCard" style="display: none;">
+          <div class="clean-success-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div>
+            <h4 id="cleanResultHeading">Dọn dẹp hoàn tất!</h4>
+            <p id="cleanResultText">Đã giải phóng 0 MB dung lượng ổ đĩa.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: QUARANTINE -->
+      <section class="tab-pane" id="tab-quarantine">
+        <div class="card glass-card">
+          <div class="card-header">
+            <div>
+              <h3>Khu Vực Cách Ly An Toàn (Quarantine Vault)</h3>
+              <p class="card-sub">Các tệp nhiễm mã độc đã được khóa mã hóa nhị phân an toàn, không thể kích hoạt gây hại.</p>
+            </div>
+            <div class="quarantine-actions">
+              <button class="btn btn-sm btn-ghost" id="btnRefreshQuarantine">Làm Mới</button>
+              <button class="btn btn-sm btn-danger" id="btnClearAllQuarantine">Xóa Sạch Khu Cách Ly</button>
+            </div>
+          </div>
+
+          <div class="quarantine-table-container">
+            <table class="data-table" id="quarantineTable">
+              <thead>
+                <tr>
+                  <th>Tên Tệp</th>
+                  <th>Loại Mã Độc</th>
+                  <th>Mức Độ</th>
+                  <th>Đường Dẫn Ban Đầu</th>
+                  <th>Thời Điểm Cách Ly</th>
+                  <th style="width: 170px;">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="quarantineTableBody">
+                <tr class="empty-row">
+                  <td colspan="6">Hiện không có tệp nào trong khu cách ly.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SHIELD & STARTUP -->
+      <section class="tab-pane" id="tab-shield">
+        <div class="shield-layout">
+          <div class="card glass-card">
+            <div class="card-header">
+              <h3>Chương Trình Khởi Động Cùng Windows</h3>
+              <button class="btn btn-sm btn-secondary" id="btnRefreshStartup">Làm Mới</button>
+            </div>
+            <p class="card-sub">Virus và spyware thường tạo khóa khởi động ẩn để tự kích hoạt mỗi khi bật máy.</p>
+            <div class="startup-table-container">
+              <table class="data-table" id="startupTable">
+                <thead>
+                  <tr>
+                    <th>Tên</th>
+                    <th>Trạng Thái Đánh Giá</th>
+                    <th>Lệnh Khởi Động</th>
+                    <th>Vị Trí Lưu</th>
+                  </tr>
+                </thead>
+                <tbody id="startupTableBody">
+                  <tr>
+                    <td colspan="4" class="loading-cell">Đang kiểm tra các mục khởi động...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

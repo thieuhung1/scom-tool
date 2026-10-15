@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Logs & temp
+*.log
+*.tmp
+.system_generated/
+
+# Quarantine storage
+quarantine_storage/
+quarantine/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
