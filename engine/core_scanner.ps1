@@ -101,6 +101,10 @@ function Test-LegitSystemPath {
             return $true
         }
     }
+    # Tệp giao diện Windows Explorer chính thống nằm trực tiếp tại C:\Windows\explorer.exe
+    if ($p -eq "$winDir\explorer.exe") {
+        return $true
+    }
     return $false
 }
 
