@@ -81,16 +81,41 @@ Hệ thống tách biệt hoàn toàn thành 3 tầng độc lập: **CLI Launch
   5. **Quản lý Khu Cách ly (Xem / Khôi phục / Xóa vĩnh viễn).**
 
 ### 📦 Giai đoạn 4 (Tuần 4): Kiểm thử Tự động, CI/CD & Đóng gói Phát hành
-- [ ] Viết bộ kiểm thử tự động kiểm tra tạo mẫu EICAR, phát hiện đuôi kép, phát hiện giả mạo `MZ Header` và khôi phục từ khu cách ly.
+- [x] Viết bộ kiểm thử tự động `tests/test_core_scanner.ps1` gồm 12 bài kiểm tra chuyên sâu:
+  - [x] Kiểm thử 5 tầng Heuristic: Đuôi kép, Masquerading, MZ Header, I/O leak Dispose, Script Download Cradle.
+  - [x] Kiểm thử cách ly & khôi phục toàn vẹn qua mã băm SHA-256.
+  - [x] Kiểm thử chặn Path Traversal (`..`) khi restore từ manifest.
+  - [x] Kiểm thử chặn khôi phục khi tệp bị can thiệp mã băm (`IntegrityViolation`).
+  - [x] Kiểm thử giới hạn tài nguyên quét & loại trừ thư mục nặng (`.git`, `node_modules`).
+  - [x] Kiểm thử cơ chế hủy quét hợp tác (`Cooperative Cancellation Flag`).
+  - [x] Kiểm thử Process Hunter bảo vệ tiến trình hệ thống cốt lõi.
 - [ ] Thiết lập GitHub Actions tự động kiểm tra lỗi cú pháp PowerShell (`PSScriptAnalyzer`) và JavaScript.
-- [ ] Đóng gói bản phát hành hoàn chỉnh (`v3.0.0`) lên GitHub Releases.
+- [ ] Đóng gói bản phát hành hoàn chỉnh (`v3.1.0`) qua `electron-builder`.
 
 ---
 
-## ✔️ PHẦN 4: DANH SÁCH KIỂM TRA CHẤT LƯỢNG TRƯỚC KHI COMMIT (QUALITY GATE)
+## 🛡️ PHẦN 5: BIÊN BẢN KHẮC PHỤC SENIOR REVIEW & BẢO MẬT (v3.1 HARDENING)
 
-Trước khi thực hiện `git commit`, đảm bảo toàn bộ 4 tiêu chí sau đạt trạng thái **PASS**:
-1. Chạy `SCOM_CLI.bat` xác nhận chỉ mở duy nhất 1 cửa sổ CMD dưới quyền Administrator.
-2. Tạo mẫu thử `[T] EICAR` và chạy `[1] Quet Nhanh` phát hiện, cách ly và khôi phục thành công.
-3. Nhập đường dẫn chứa dấu cách và ngoặc đơn (ví dụ `C:\Program Files (x86)`) vào mục `[2] Quet Tuy Chon` không gây văng cửa sổ.
-4. Gọi `core_scanner.ps1 -Mode Quick -NonInteractive -OutputFormat JSON` trả về chuỗi JSON hợp lệ mà không dừng chờ nhập phím.
+| Mức Độ | Phát Hiện (Findings) | Biện Pháp Khắc Phục Triệt Để Trong Code | Trạng Thái |
+| :--- | :--- | :--- | :--- |
+| **Blocker** | **Command Injection khi kill process** (`src/main.js` nội suy PID vào `-Command`) | Chuyển sang `taskkill.exe` trực tiếp qua mảng tham số `['/F', '/PID', String(cleanPid)]` (không dùng shell), kiểm tra `Number.isInteger(cleanPid) && cleanPid > 4`, chặn danh sách PID hệ thống (`0, 4`). | **ĐÃ SỬA & KIỂM THỬ** |
+| **Blocker** | **Quét đệ quy không giới hạn, nghẽn RAM/I/O** | Viết lại thuật toán quét `Get-ScannableFiles` bằng hàng đợi BFS, giới hạn `LimitDepth = 12`, `LimitFiles = 25000`, loại trừ thư mục nặng (`.git`, `node_modules`, `vendor`, `inetcache`), bỏ qua `ReparsePoint/Junction`, hỗ trợ streaming tiến độ `JSON_EVENT` và cờ hủy `scom_cancel_scan.flag`. | **ĐÃ SỬA & KIỂM THỬ** |
+| **Blocker** | **Khu cách ly chưa có biên giới bảo mật thực sự** | Bổ sung siết ACL thư mục `SCOM_Quarantine` (`SetAccessRuleProtection`), gắn cờ `ReadOnly` cho tệp cách ly, lưu mã băm SHA-256 trong `quarantine_manifest.json`, từ chối khôi phục nếu mã băm sai lệch (`IntegrityViolation`), chặn triệt để Path Traversal (`..`). | **ĐÃ SỬA & KIỂM THỬ** |
+| **High** | **Cơ sở dữ liệu chữ ký chứa hash giả** | Loại bỏ toàn bộ hash giả mạo khỏi `engine/signatures.json`. Chỉ giữ mã băm chuẩn xác thực tế (EICAR MD5/SHA256, WannaCry Executable & Dropper), minh bạch chiến lược `Heuristic-First`. | **ĐÃ SỬA & KIỂM THỬ** |
+| **High** | **Bề mặt False-Positive của Process Hunter & nút Kill** | Bảo vệ tiến trình hệ thống (`0, 4, csrss, svchost, explorer...`), chỉ cảnh báo tệp trong `Temp` nếu là Script Interpreter (`powershell, cmd, wscript, cscript, mshta`), thêm hộp thoại xác nhận cảnh báo trên giao diện Desktop GUI. | **ĐÃ SỬA & KIỂM THỬ** |
+| **High** | **Reset Hosts xóa cấu hình mà không sao lưu** | Tự động tạo bản sao lưu có timestamp (`hosts.backup_yyyyMMdd_HHmmss`) trước khi ghi đè khôi phục file hosts mặc định. | **ĐÃ SỬA & KIỂM THỬ** |
+| **High** | **Tư thế bảo mật Electron thiếu CSP & Sandbox** | Bật `sandbox: true`, giữ `nodeIntegration: false` + `contextIsolation: true`, thêm thẻ `Content-Security-Policy` nghiêm ngặt trong `index.html`. | **ĐÃ SỬA & KIỂM THỬ** |
+| **Medium** | **Heuristic kịch bản thiếu cradles hiện đại** | Mở rộng danh mục mẫu nhận diện: `Invoke-RestMethod (irm)`, `Invoke-Expression (iex)`, Base64 payload decoding (`[System.Convert]::FromBase64String`), `certutil -urlcache`, `vssadmin delete shadows`. Đồng bộ động từ `signatures.json`. | **ĐÃ SỬA & KIỂM THỬ** |
+| **Medium** | **An toàn File Handle & I/O** | Chuẩn hóa giải phóng `Dispose()` trong khối `try/finally` với `FileShare.ReadWrite`, bắt lỗi tệp bị khóa. | **ĐÃ SỬA & KIỂM THỬ** |
+| **Medium** | **Bộ kiểm thử tự động toàn diện** | Mở rộng `tests/test_core_scanner.ps1` lên 12 test cases kiểm tra từ Heuristic, Cách ly, Toàn vẹn mã băm, Path Traversal, Loại trừ thư mục đến Hủy hợp tác (12/12 PASS). | **ĐÃ SỬA & KIỂM THỬ** |
+
+---
+
+## ✔️ PHẦN 6: DANH SÁCH KIỂM TRA CHẤT LƯỢNG TRƯỚC KHI COMMIT (QUALITY GATE)
+
+Trước khi thực hiện `git commit`, đảm bảo toàn bộ 5 tiêu chí sau đạt trạng thái **PASS**:
+1. Chạy `powershell -File ./tests/test_core_scanner.ps1` đạt **12 / 12 PASS**.
+2. Chạy `SCOM_CLI.bat` xác nhận chỉ mở duy nhất 1 cửa sổ CMD dưới quyền Administrator.
+3. Tạo mẫu thử `[T] EICAR` và chạy `[1] Quet Nhanh` phát hiện, cách ly và khôi phục thành công.
+4. Nhập đường dẫn chứa dấu cách và ngoặc đơn (ví dụ `C:\Program Files (x86)`) vào mục `[2] Quet Tuy Chon` không gây văng cửa sổ.
+5. Kiểm tra GUI Electron khởi động an toàn, không có lỗi CSP hay lỗi IPC trong DevTools console.

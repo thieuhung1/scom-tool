@@ -40,5 +40,10 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('scan:log', handler);
     return () => ipcRenderer.removeListener('scan:log', handler);
+  },
+  onScanProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('scan:progress', handler);
+    return () => ipcRenderer.removeListener('scan:progress', handler);
   }
 });

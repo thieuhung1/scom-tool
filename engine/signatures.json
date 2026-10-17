@@ -1,48 +1,37 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "updatedAt": "2026-10-17",
+  "detectionStrategy": "Heuristic-First (Cơ chế phát hiện chủ đạo dựa trên 5 lớp Heuristic: Phân tích Header nhị phân MZ, phát hiện đuôi kép giả mạo, tiến trình mạo danh hệ thống và phân tích hành vi mã độc kịch bản; kết hợp đối chiếu mã băm chuẩn EICAR và Ransomware thực tế)",
   "knownHashes": {
     "44d88612fea8a8f36de82e1278abb02f": {
       "name": "EICAR-Standard-AV-Test-File",
       "type": "Test.Malware",
-      "severity": "Cao",
+      "severity": "Cao (Mẫu Test Chuẩn)",
       "description": "Tệp kiểm tra chuẩn chống virus quốc tế EICAR."
     },
     "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f": {
       "name": "EICAR-Test-Signature-SHA256",
       "type": "Test.Malware",
-      "severity": "Cao",
+      "severity": "Cao (Mẫu Test Chuẩn)",
       "description": "Chữ ký mã băm SHA-256 tệp chuẩn thử nghiệm EICAR."
     },
-    "09a0815e659483d6bc09fca8e559443a": {
-      "name": "WannaCry.Ransomware.Sample",
+    "84c82835a5d21bbcf75a61706d8ab549": {
+      "name": "WannaCry.Ransomware.Payload",
       "type": "Ransomware",
       "severity": "Cực Kỳ Nguy Hiểm",
-      "description": "Mẫu mã độc tống tiền tàn phá WannaCry mã hóa dữ liệu."
+      "description": "Mã băm MD5 chuẩn của payload tống tiền WannaCry."
     },
-    "512301c535c88255c9a252fdf70b7a03de0e73ae6d04b0f553232716600c5c7b": {
-      "name": "WannaCry.SHA256.Dropper",
+    "24d004a104d4d54034dbc29c2f45f301a87e5b2b13e7b2a4149260e408013859": {
+      "name": "WannaCry.Ransomware.Executable",
+      "type": "Ransomware",
+      "severity": "Cực Kỳ Nguy Hiểm",
+      "description": "Mã băm SHA-256 thực thi chính thức của WannaCry."
+    },
+    "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa": {
+      "name": "WannaCry.Ransomware.Dropper",
       "type": "Ransomware.Dropper",
       "severity": "Cực Kỳ Nguy Hiểm",
-      "description": "Tệp thực thi phát tán ransomware nguy hiểm cao."
-    },
-    "c5e96a7d5c7f9d8e7b3a1a2b3c4d5e6f": {
-      "name": "XMRig.CoinMiner.Malware",
-      "type": "Trojan.CoinMiner",
-      "severity": "Cao",
-      "description": "Mã độc đào tiền ảo ngầm gây quá tải CPU và hỏng phần cứng."
-    },
-    "7b8c2d1e0f3a4b5c6d7e8f9a0b1c2d3e": {
-      "name": "RedLine.Stealer.Payload",
-      "type": "Trojan.PasswordStealer",
-      "severity": "Cực Kỳ Nguy Hiểm",
-      "description": "Trojan đánh cắp mật khẩu trình duyệt, tài khoản ngân hàng và ví điện tử."
-    },
-    "3f9b2d8e1a7c4f6a5b8c9d0e1f2a3b4c": {
-      "name": "AsyncRAT.Backdoor",
-      "type": "Backdoor.RemoteAccess",
-      "severity": "Cực Kỳ Nguy Hiểm",
-      "description": "Mã độc điều khiển máy tính từ xa trái phép chiếm quyền điều khiển."
+      "description": "Mã băm SHA-256 dropper phát tán ransomware WannaCry."
     }
   },
   "suspiciousDoubleExtensions": [
@@ -114,10 +103,22 @@
   ],
   "maliciousScriptPatterns": [
     {
-      "pattern": "powershell.*(-enc|-encodedcommand|downloadstring|invoke-webrequest|iwr|bypass)",
+      "pattern": "powershell.*(-enc|-encodedcommand|downloadstring|downloadfile|invoke-webrequest|iwr|invoke-restmethod|irm|bypass|-w\\s+hidden)",
       "name": "Script.Malicious.PowerShellDownloadCradle",
       "severity": "Cao",
-      "description": "Lệnh PowerShell tải mã độc ngầm từ xa hoặc chạy chuỗi mã hóa Base64."
+      "description": "Lệnh PowerShell tải mã độc ngầm hoặc chạy chuỗi Base64 ẩn cửa sổ."
+    },
+    {
+      "pattern": "(invoke-expression|iex)\\s*(\\(|\\[|\\$|`|\")",
+      "name": "Script.Malicious.InvokeExpressionExecution",
+      "severity": "Cao",
+      "description": "Lệnh thực thi chuỗi động nguy hiểm IEX/Invoke-Expression thường dùng trong obfuscated malware."
+    },
+    {
+      "pattern": "\\[system\\.convert\\]::frombase64string",
+      "name": "Script.Malicious.Base64PayloadDecoder",
+      "severity": "Cao",
+      "description": "Kỹ thuật giải mã chuỗi Base64 trên bộ nhớ nhằm che giấu payload mã độc."
     },
     {
       "pattern": "certutil.*(-urlcache|-split|-f)",
@@ -141,7 +142,13 @@
       "pattern": "vssadmin.*delete.*shadows",
       "name": "Ransomware.Behavior.ShadowCopyDeletion",
       "severity": "Cực Kỳ Nguy Hiểm",
-      "description": "Hành vi đặc trưng của Ransomware cố tình xóa bản sao lưu hệ thống để ngăn phục hồi."
+      "description": "Hành vi đặc trưng của Ransomware cố tình xóa bản sao lưu hệ thống (Shadow Copy)."
+    },
+    {
+      "pattern": "(wbadmin.*delete.*catalog|bcdedit.*ignoreallfailures)",
+      "name": "Ransomware.Behavior.BackupDestruction",
+      "severity": "Cực Kỳ Nguy Hiểm",
+      "description": "Hành vi phá hủy backup catalog hoặc vô hiệu hóa phục hồi Windows Boot."
     },
     {
       "pattern": "X5O!P%@AP\\[4\\\\PZX54\\(P\\^\\)7CC\\)7\\}\\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\\$H\\+H\\*",

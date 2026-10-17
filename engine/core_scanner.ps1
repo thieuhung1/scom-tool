@@ -1,6 +1,6 @@
 ﻿# ============================================================================
-# SCOM CYBERSHIELD v3.0 - CORE SCANNER ENGINE (POWERSHELL JSON API & CONSOLE)
-# Kiến trúc 5 lớp nhận diện mã độc Zero-Bug & bảo vệ hệ thống chuyên sâu
+# SCOM CYBERSHIELD v3.1 - CORE SCANNER ENGINE (SECURITY HARDENED)
+# Kiến trúc 5 lớp nhận diện mã độc Heuristic-First & Zero-Bug Pattern
 # ============================================================================
 [CmdletBinding()]
 param (
@@ -11,6 +11,9 @@ param (
     [string]$QuarantineDir = "",
     [string]$RestoreId = "",
 
+    [int]$MaxDepth = 12,
+    [int]$MaxFiles = 25000,
+
     [ValidateSet('Text', 'JSON')]
     [string]$OutputFormat = "Text",
 
@@ -18,9 +21,12 @@ param (
     [switch]$AutoQuarantine
 )
 
-# Thiết lập UTF-8 chuẩn cho cả đầu ra Console và JSON
+# Thiết lập UTF-8 chuẩn
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Tệp cờ hủy hợp tác (Cooperative Cancellation Flag)
+$CancelFlagPath = Join-Path $env:TEMP "scom_cancel_scan.flag"
 
 # Nạp cơ sở dữ liệu Chữ ký nhận diện (signatures.json)
 $EngineDir = $PSScriptRoot
@@ -29,6 +35,7 @@ if (-not $EngineDir) {
 }
 $SigPath = Join-Path $EngineDir "signatures.json"
 
+$Signatures = $null
 if (Test-Path $SigPath) {
     try {
         $rawJson = Get-Content -Path $SigPath -Raw -Encoding UTF8
@@ -38,7 +45,7 @@ if (Test-Path $SigPath) {
     }
 }
 
-# Cấu hình danh sách mặc định nếu chưa nạp được tệp JSON
+# Cấu hình danh sách mẫu nhận diện
 $suspiciousDoubleExt = if ($Signatures -and $Signatures.suspiciousDoubleExtensions) {
     $Signatures.suspiciousDoubleExtensions
 } else {
@@ -48,19 +55,19 @@ $suspiciousDoubleExt = if ($Signatures -and $Signatures.suspiciousDoubleExtensio
 $fakeSystemNames = if ($Signatures -and $Signatures.disguisedSystemProcesses) {
     $Signatures.disguisedSystemProcesses
 } else {
-    @('svchost.exe', 'csrss.exe', 'lsass.exe', 'services.exe', 'smss.exe', 'winlogon.exe', 'taskhostw.exe', 'runtimebroker.exe')
+    @('svchost.exe', 'csrss.exe', 'lsass.exe', 'services.exe', 'smss.exe', 'winlogon.exe', 'wininit.exe', 'taskhostw.exe', 'runtimebroker.exe', 'spoolsv.exe')
 }
 
 $execExts = if ($Signatures -and $Signatures.executableExtensions) {
     $Signatures.executableExtensions
 } else {
-    @('.exe', '.dll', '.sys', '.scr', '.com', '.bat', '.cmd', '.ps1', '.vbs', '.hta', '.js', '.wsf')
+    @('.exe', '.dll', '.sys', '.scr', '.com', '.bat', '.cmd', '.ps1', '.vbs', '.hta', '.js', '.wsf', '.cpl')
 }
 
 $minerKeywords = if ($Signatures -and $Signatures.coinMinerKeywords) {
     $Signatures.coinMinerKeywords
 } else {
-    @('xmrig', 'cpuminer', 'ccminer', 'nicehash', 'minerd', 'ethminer', 'phoenixminer', 'srbminer')
+    @('xmrig', 'cpuminer', 'ccminer', 'nicehash', 'minerd', 'ethminer', 'phoenixminer', 'srbminer', 'cryptonight')
 }
 
 if (-not $QuarantineDir) {
@@ -68,6 +75,11 @@ if (-not $QuarantineDir) {
 }
 if (-not (Test-Path $QuarantineDir)) {
     New-Item -ItemType Directory -Path $QuarantineDir -Force | Out-Null
+    try {
+        $acl = Get-Acl $QuarantineDir
+        $acl.SetAccessRuleProtection($true, $true)
+        Set-Acl -Path $QuarantineDir -AclObject $acl
+    } catch {}
 }
 $ManifestPath = Join-Path $QuarantineDir "quarantine_manifest.json"
 
@@ -90,6 +102,75 @@ function Test-LegitSystemPath {
         }
     }
     return $false
+}
+
+# ============================================================================
+# BỘ DUYỆT TỆP TIN KIỂM SOÁT TÀI NGUYÊN (Resource-Controlled File Enumerator)
+# Giới hạn độ sâu, danh sách loại trừ và hỗ trợ hủy hợp tác
+# ============================================================================
+function Get-ScannableFiles {
+    param(
+        [string]$RootPath,
+        [int]$LimitDepth = 12,
+        [int]$LimitFiles = 25000,
+        [string]$CancelFlag = ""
+    )
+
+    $excludedDirNames = @('.git', 'node_modules', 'vendor', '$recycle.bin', 'system volume information', 'inetcache')
+
+    if (-not (Test-Path $RootPath)) { return }
+
+    if ((Get-Item $RootPath) -is [System.IO.FileInfo]) {
+        Get-Item $RootPath
+        return
+    }
+
+    $queue = New-Object System.Collections.Generic.Queue[PSCustomObject]
+    $queue.Enqueue([PSCustomObject]@{ Path = $RootPath; Depth = 0 })
+
+    $count = 0
+
+    while ($queue.Count -gt 0 -and $count -lt $LimitFiles) {
+        if ($CancelFlag -and (Test-Path $CancelFlag)) {
+            break
+        }
+
+        $current = $queue.Dequeue()
+        $dir = $current.Path
+        $depth = $current.Depth
+
+        try {
+            $files = [System.IO.Directory]::GetFiles($dir)
+            foreach ($f in $files) {
+                if ($CancelFlag -and (Test-Path $CancelFlag)) { break }
+                $count++
+                if ($count -gt $LimitFiles) { break }
+                try {
+                    New-Object System.IO.FileInfo($f)
+                } catch {}
+            }
+        } catch {}
+
+        if ($depth -lt $LimitDepth) {
+            try {
+                $subDirs = [System.IO.Directory]::GetDirectories($dir)
+                foreach ($sd in $subDirs) {
+                    $dName = [System.IO.Path]::GetFileName($sd).ToLower()
+                    if ($excludedDirNames -contains $dName) { continue }
+
+                    # Bỏ qua ReparsePoint / Junction để tránh loop
+                    try {
+                        $di = New-Object System.IO.DirectoryInfo($sd)
+                        if ($di.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+                            continue
+                        }
+                    } catch {}
+
+                    $queue.Enqueue([PSCustomObject]@{ Path = $sd; Depth = $depth + 1 })
+                }
+            } catch {}
+        }
+    }
 }
 
 # ============================================================================
@@ -128,7 +209,7 @@ function Scan-FileRecord {
         }
     }
 
-    # LỚP 3: Phân tích MZ Magic Bytes trong tệp hình ảnh/tài liệu (Fix PS-BUG-01: An toàn rò rỉ khóa file)
+    # LỚP 3: Phân tích MZ Magic Bytes trong tệp hình ảnh/tài liệu (Fix PS-BUG-01: An toàn giải phóng luồng)
     if (-not $threatReason -and $file.Length -gt 2) {
         $docExts = @('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.txt', '.docx', '.xlsx', '.mp4')
         if ($docExts -contains $ext) {
@@ -147,7 +228,6 @@ function Scan-FileRecord {
                     $threatSeverity = "Cực Kỳ Nguy Hiểm"
                 }
             } catch {
-                # Không đọc được file do quyền truy cập hoặc bị khóa bởi hệ thống
             } finally {
                 if ($null -ne $stream) {
                     $stream.Dispose()
@@ -194,25 +274,36 @@ function Scan-FileRecord {
         }
     }
 
-    # LỚP 5: Phân tích hành vi kịch bản độc hại (Malicious Scripts < 5MB)
+    # LỚP 5: Phân tích hành vi kịch bản độc hại động từ signatures.json (< 5MB)
     if (-not $threatReason -and ($file.Length -lt 5MB)) {
-        $scriptExts = @('.ps1', '.bat', '.cmd', '.vbs', '.hta', '.js', '.wsf')
-        if ($scriptExts -contains $ext) {
+        $scriptExts = @('.ps1', '.bat', '.cmd', '.vbs', '.hta', '.js', '.wsf', '.txt', '.com')
+        if ($scriptExts -contains $ext -or $file.Length -lt 50KB) {
             try {
                 $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
                 if ($content) {
-                    if ($content -match 'powershell.*(-enc|-encodedcommand|downloadstring|invoke-webrequest|iwr|bypass)') {
-                        $threatReason = "Script.Malicious.PowerShellDownloadCradle"
-                        $threatSeverity = "Cao"
-                    } elseif ($content -match 'certutil.*(-urlcache|-split|-f)') {
-                        $threatReason = "Script.Malicious.CertutilAbuse"
-                        $threatSeverity = "Cao"
-                    } elseif ($content -match 'vssadmin.*delete.*shadows') {
-                        $threatReason = "Ransomware.Behavior.ShadowCopyDeletion"
-                        $threatSeverity = "Cực Kỳ Nguy Hiểm"
-                    } elseif ($content -match 'X5O!P%@AP\[4\\PZX54\(P\^\)7CC\)7\}\$EICAR') {
-                        $threatReason = "Malware.Test.EICAR-Standard-AV-Pattern"
-                        $threatSeverity = "Cao (Mẫu Test Chuẩn)"
+                    if ($Signatures -and $Signatures.maliciousScriptPatterns) {
+                        foreach ($sp in $Signatures.maliciousScriptPatterns) {
+                            if ($content -match $sp.pattern) {
+                                $threatReason = $sp.name
+                                $threatSeverity = $sp.severity
+                                break
+                            }
+                        }
+                    }
+                    if (-not $threatReason) {
+                        if ($content -match 'powershell.*(-enc|-encodedcommand|downloadstring|downloadfile|invoke-webrequest|iwr|invoke-restmethod|irm|bypass|-w\s+hidden)') {
+                            $threatReason = "Script.Malicious.PowerShellDownloadCradle"
+                            $threatSeverity = "Cao"
+                        } elseif ($content -match '(invoke-expression|iex)\s*(\(|\[|\$|`|")') {
+                            $threatReason = "Script.Malicious.InvokeExpressionExecution"
+                            $threatSeverity = "Cao"
+                        } elseif ($content -match 'certutil.*(-urlcache|-split|-f)') {
+                            $threatReason = "Script.Malicious.CertutilAbuse"
+                            $threatSeverity = "Cao"
+                        } elseif ($content -match 'vssadmin.*delete.*shadows') {
+                            $threatReason = "Ransomware.Behavior.ShadowCopyDeletion"
+                            $threatSeverity = "Cực Kỳ Nguy Hiểm"
+                        }
                     }
                 }
             } catch {}
@@ -234,7 +325,7 @@ function Scan-FileRecord {
 }
 
 # ============================================================================
-# QUẢN LÝ KHU CÁCH LY CHUNG (Fix PS-BUG-03, PS-BUG-04)
+# QUẢN LÝ KHU CÁCH LY CHUNG (CỨNG HÓA ACL & BẢO VỆ TOÀN VẸN MÃ BĂM)
 # ============================================================================
 function Get-QuarantineManifest {
     if (Test-Path $ManifestPath) {
@@ -288,9 +379,19 @@ function Invoke-QuarantineAction {
             $quarantineFileName = "$($t.Name).$timestamp.$quarantineId.quarantined"
             $destPath = Join-Path $TargetQuarantineDir $quarantineFileName
 
+            # 1. Tính mã băm SHA256 để bảo vệ tính toàn vẹn khi khôi phục
+            $sha256 = ""
+            try {
+                $sha256 = (Get-FileHash -Path $t.Path -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
+            } catch {}
+
             $actionStatus = "Failed"
             try {
                 Move-Item -Path $t.Path -Destination $destPath -Force -ErrorAction Stop
+                
+                # Cấm ghi đè và đặt cờ ReadOnly để vô hiệu hóa
+                try { (Get-Item $destPath).IsReadOnly = $true } catch {}
+
                 $actionStatus = "Success"
 
                 $entry = [PSCustomObject]@{
@@ -298,6 +399,7 @@ function Invoke-QuarantineAction {
                     OriginalPath = $t.Path
                     FileName = $t.Name
                     FileSize = $t.Size
+                    Sha256 = $sha256
                     Reason = $t.Reason
                     Severity = $t.Severity
                     QuarantinedAt = [DateTime]::UtcNow.ToString("o")
@@ -306,7 +408,7 @@ function Invoke-QuarantineAction {
                 $manifest += $entry
 
                 if ($CurrentOutputFormat -eq 'Text') {
-                    Write-Host " [+] Đã cách ly an toàn: $($t.Name) -> $quarantineFileName" -ForegroundColor Cyan
+                    Write-Host " [+] Đã cách ly an toàn (SHA256 lưu trữ): $($t.Name) -> $quarantineFileName" -ForegroundColor Cyan
                 }
             } catch {
                 if ($CurrentOutputFormat -eq 'Text') {
@@ -344,34 +446,45 @@ if ($Mode -eq "Quick") {
 
     if ($OutputFormat -eq 'Text') {
         Write-Host "================================================================================" -ForegroundColor Cyan
-        Write-Host "     SCOM CYBERSHIELD v3.0 - QUÉT NHANH CÁC KHU VỰC XUNG YẾU (QUICK SCAN)" -ForegroundColor Cyan
+        Write-Host "     SCOM CYBERSHIELD v3.1 - QUÉT NHANH CÁC KHU VỰC XUNG YẾU (QUICK SCAN)" -ForegroundColor Cyan
         Write-Host "================================================================================" -ForegroundColor DarkGray
         Write-Host "[*] Vùng quét: Temp, AppData\Temp, Downloads, Startup, Windows Temp" -ForegroundColor Gray
     }
 
     $scanned = 0
     $threats = @()
+    $wasCancelled = $false
 
     foreach ($dir in $targets) {
         if (-not (Test-Path $dir)) { continue }
+        if (Test-Path $CancelFlagPath) { $wasCancelled = $true; break }
+
         if ($OutputFormat -eq 'Text') {
             Write-Host "`n -> Đang quét vùng: $dir" -ForegroundColor DarkCyan
         }
 
-        Get-ChildItem -Path $dir -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $files = Get-ScannableFiles -RootPath $dir -LimitDepth $MaxDepth -LimitFiles $MaxFiles -CancelFlag $CancelFlagPath
+        foreach ($fileObj in $files) {
+            if (Test-Path $CancelFlagPath) { $wasCancelled = $true; break }
             $scanned++
-            $t = Scan-FileRecord -file $_
+            $t = Scan-FileRecord -file $fileObj
             if ($t) {
                 $threats += $t
                 if ($OutputFormat -eq 'Text') {
-                    Write-Host "`n [!] PHÁT HIỆN NGUY HIỂM: $($t.Path)" -ForegroundColor Red
+                    Write-Host "`n [!] PHÁT HIỆN: $($t.Path)" -ForegroundColor Red
                     Write-Host "     Phân loại: $($t.Reason) | Mức độ: $($t.Severity)" -ForegroundColor Yellow
                 }
             } elseif ($OutputFormat -eq 'Text' -and ($scanned % 50 -eq 0)) {
                 Write-Host -NoNewline "."
             }
+
+            if ($scanned % 50 -eq 0 -and $OutputFormat -eq 'JSON') {
+                Write-Output ("JSON_EVENT:" + (@{ event = "progress"; scanned = $scanned; current = $fileObj.FullName } | ConvertTo-Json -Compress))
+            }
         }
     }
+
+    if (Test-Path $CancelFlagPath) { $wasCancelled = $true }
 
     $quarantineResults = @()
     if ($threats.Count -gt 0) {
@@ -381,7 +494,7 @@ if ($Mode -eq "Quick") {
     if ($OutputFormat -eq 'JSON') {
         [PSCustomObject]@{
             Mode = "Quick"
-            Status = "Completed"
+            Status = if ($wasCancelled) { "Cancelled" } else { "Completed" }
             TotalScanned = $scanned
             ThreatsCount = $threats.Count
             Threats = $threats
@@ -397,7 +510,7 @@ if ($Mode -eq "Quick") {
     }
 }
 
-# 2. QUÉT TÙY CHỌN (Custom Scan)
+# 2. QUÉT TÙY CHỌN (Custom Scan - Giới hạn kiểm soát tài nguyên)
 elseif ($Mode -eq "Custom") {
     if (-not $TargetPath -or -not (Test-Path $TargetPath)) {
         if ($OutputFormat -eq 'JSON') {
@@ -416,38 +529,34 @@ elseif ($Mode -eq "Custom") {
     }
 
     if ($OutputFormat -eq 'Text') {
-        Write-Host "[*] Đang quét mục tiêu: $TargetPath" -ForegroundColor Cyan
+        Write-Host "[*] Đang quét mục tiêu (Độ sâu tối đa $MaxDepth): $TargetPath" -ForegroundColor Cyan
     }
 
     $scanned = 0
     $threats = @()
+    $wasCancelled = $false
 
-    if ((Get-Item $TargetPath) -is [System.IO.FileInfo]) {
-        $file = Get-Item $TargetPath
-        $scanned = 1
-        $t = Scan-FileRecord -file $file
+    $files = Get-ScannableFiles -RootPath $TargetPath -LimitDepth $MaxDepth -LimitFiles $MaxFiles -CancelFlag $CancelFlagPath
+    foreach ($fileObj in $files) {
+        if (Test-Path $CancelFlagPath) { $wasCancelled = $true; break }
+        $scanned++
+        $t = Scan-FileRecord -file $fileObj
         if ($t) {
             $threats += $t
             if ($OutputFormat -eq 'Text') {
-                Write-Host "[!] PHÁT HIỆN: $($t.Path)" -ForegroundColor Red
+                Write-Host "`n[!] PHÁT HIỆN: $($t.Path)" -ForegroundColor Red
                 Write-Host "    Loại: $($t.Reason) | Mức độ: $($t.Severity)" -ForegroundColor Yellow
             }
+        } elseif ($OutputFormat -eq 'Text' -and ($scanned % 50 -eq 0)) {
+            Write-Host -NoNewline "."
         }
-    } else {
-        Get-ChildItem -Path $TargetPath -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
-            $scanned++
-            $t = Scan-FileRecord -file $_
-            if ($t) {
-                $threats += $t
-                if ($OutputFormat -eq 'Text') {
-                    Write-Host "`n[!] PHÁT HIỆN: $($t.Path)" -ForegroundColor Red
-                    Write-Host "    Loại: $($t.Reason) | Mức độ: $($t.Severity)" -ForegroundColor Yellow
-                }
-            } elseif ($OutputFormat -eq 'Text' -and ($scanned % 50 -eq 0)) {
-                Write-Host -NoNewline "."
-            }
+
+        if ($scanned % 50 -eq 0 -and $OutputFormat -eq 'JSON') {
+            Write-Output ("JSON_EVENT:" + (@{ event = "progress"; scanned = $scanned; current = $fileObj.FullName } | ConvertTo-Json -Compress))
         }
     }
+
+    if (Test-Path $CancelFlagPath) { $wasCancelled = $true }
 
     $quarantineResults = @()
     if ($threats.Count -gt 0) {
@@ -458,7 +567,7 @@ elseif ($Mode -eq "Custom") {
         [PSCustomObject]@{
             Mode = "Custom"
             TargetPath = $TargetPath
-            Status = "Completed"
+            Status = if ($wasCancelled) { "Cancelled" } else { "Completed" }
             TotalScanned = $scanned
             ThreatsCount = $threats.Count
             Threats = $threats
@@ -470,29 +579,34 @@ elseif ($Mode -eq "Custom") {
     }
 }
 
-# 3. QUÉT TOÀN DIỆN (Full Scan - Tích hợp đầy đủ Quarantine, Fix PS-BUG-03)
+# 3. QUÉT TOÀN DIỆN (Full Scan - Bỏ qua vòng lặp, kiểm soát bộ nhớ)
 elseif ($Mode -eq "Full") {
     $roots = @('C:\Users', 'C:\ProgramData')
 
     if ($OutputFormat -eq 'Text') {
         Write-Host "================================================================================" -ForegroundColor Cyan
-        Write-Host "          SCOM CYBERSHIELD v3.0 - QUÉT TOÀN DIỆN HỆ THỐNG (FULL SCAN)" -ForegroundColor Cyan
+        Write-Host "          SCOM CYBERSHIELD v3.1 - QUÉT TOÀN DIỆN HỆ THỐNG (FULL SCAN)" -ForegroundColor Cyan
         Write-Host "================================================================================" -ForegroundColor DarkGray
-        Write-Host "[*] Phân vùng quét sâu: C:\Users, C:\ProgramData" -ForegroundColor Gray
+        Write-Host "[*] Phân vùng quét sâu: C:\Users, C:\ProgramData (Loại trừ cache lớn và .git/node_modules)" -ForegroundColor Gray
     }
 
     $scanned = 0
     $threats = @()
+    $wasCancelled = $false
 
     foreach ($r in $roots) {
         if (-not (Test-Path $r)) { continue }
+        if (Test-Path $CancelFlagPath) { $wasCancelled = $true; break }
+
         if ($OutputFormat -eq 'Text') {
             Write-Host "`n -> Đang quét phân vùng dữ liệu: $r" -ForegroundColor DarkCyan
         }
 
-        Get-ChildItem -Path $r -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $files = Get-ScannableFiles -RootPath $r -LimitDepth $MaxDepth -LimitFiles $MaxFiles -CancelFlag $CancelFlagPath
+        foreach ($fileObj in $files) {
+            if (Test-Path $CancelFlagPath) { $wasCancelled = $true; break }
             $scanned++
-            $t = Scan-FileRecord -file $_
+            $t = Scan-FileRecord -file $fileObj
             if ($t) {
                 $threats += $t
                 if ($OutputFormat -eq 'Text') {
@@ -502,8 +616,14 @@ elseif ($Mode -eq "Full") {
             } elseif ($OutputFormat -eq 'Text' -and ($scanned % 100 -eq 0)) {
                 Write-Host -NoNewline "."
             }
+
+            if ($scanned % 50 -eq 0 -and $OutputFormat -eq 'JSON') {
+                Write-Output ("JSON_EVENT:" + (@{ event = "progress"; scanned = $scanned; current = $fileObj.FullName } | ConvertTo-Json -Compress))
+            }
         }
     }
+
+    if (Test-Path $CancelFlagPath) { $wasCancelled = $true }
 
     $quarantineResults = @()
     if ($threats.Count -gt 0) {
@@ -513,7 +633,7 @@ elseif ($Mode -eq "Full") {
     if ($OutputFormat -eq 'JSON') {
         [PSCustomObject]@{
             Mode = "Full"
-            Status = "Completed"
+            Status = if ($wasCancelled) { "Cancelled" } else { "Completed" }
             TotalScanned = $scanned
             ThreatsCount = $threats.Count
             Threats = $threats
@@ -525,13 +645,17 @@ elseif ($Mode -eq "Full") {
     }
 }
 
-# 4. SĂN TIẾN TRÌNH & ĐÀO COIN (Process Hunter - Fix PS-BUG-05 WinSxS)
+# 4. SĂN TIẾN TRÌNH & ĐÀO COIN (Bảo vệ tiến trình hệ thống cốt lõi & Giảm False-Positive)
 elseif ($Mode -eq "ProcessHunter") {
     if ($OutputFormat -eq 'Text') {
         Write-Host "================================================================================" -ForegroundColor Cyan
         Write-Host "          SCOM PROCESS HUNTER - SĂN LÙNG TIẾN TRÌNH LẠ & ĐÀO COIN" -ForegroundColor Cyan
         Write-Host "================================================================================" -ForegroundColor DarkGray
     }
+
+    # Danh sách tiến trình cốt lõi được bảo vệ
+    $protectedPids = @(0, 4)
+    $protectedSystemNames = @('system', 'idle', 'smss', 'csrss', 'wininit', 'services', 'lsass', 'svchost', 'explorer', 'taskhostw', 'runtimebroker', 'dwm', 'fontdrvhost')
 
     $procs = Get-Process -ErrorAction SilentlyContinue
     $suspiciousList = @()
@@ -543,10 +667,12 @@ elseif ($Mode -eq "ProcessHunter") {
             $pPath = $p.Path
         } catch {}
 
+        $isProtected = ($protectedPids -contains $p.Id) -or ($protectedSystemNames -contains $pName -and (Test-LegitSystemPath -Path $pPath))
+
         $reason = $null
         $severity = "Cao"
 
-        # Kiểm tra từ khóa đào coin trong tên tiến trình
+        # 1. Kiểm tra từ khóa đào coin
         foreach ($kw in $minerKeywords) {
             if ($pName.Contains($kw)) {
                 $reason = "CoinMiner.Process.Detected ($kw)"
@@ -555,7 +681,7 @@ elseif ($Mode -eq "ProcessHunter") {
             }
         }
 
-        # Kiểm tra tiến trình mạo danh hệ thống chạy ngoài System32 / SysWOW64 / WinSxS (Fix PS-BUG-05)
+        # 2. Kiểm tra tiến trình mạo danh hệ thống chạy ngoài System32 / SysWOW64 / WinSxS
         if (-not $reason -and $pPath) {
             foreach ($sys in $fakeSystemNames) {
                 $sysBase = [System.IO.Path]::GetFileNameWithoutExtension($sys).ToLower()
@@ -569,12 +695,17 @@ elseif ($Mode -eq "ProcessHunter") {
             }
         }
 
-        # Kiểm tra tiến trình chạy lén từ thư mục Temp / AppData
+        # 3. Kiểm tra tiến trình Temp (chỉ cảnh báo nếu là script runner hoặc không có mô tả chuẩn)
         if (-not $reason -and $pPath) {
             $pPathLower = $pPath.ToLower()
             if ($pPathLower.Contains('\appdata\local\temp\') -or $pPathLower.Contains('\windows\temp\')) {
-                $reason = "Suspicious.ProcessRunningFromTempFolder"
-                $severity = "Cao"
+                # Chỉ cảnh báo nếu là script interpreter hoặc có từ khóa nghi vấn, tránh false-positive installer
+                $scriptInterpreters = @('powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe')
+                $isScriptRunner = $scriptInterpreters -contains [System.IO.Path]::GetFileName($pPathLower)
+                if ($isScriptRunner) {
+                    $reason = "Suspicious.ScriptInterpreterRunningFromTemp"
+                    $severity = "Cao"
+                }
             }
         }
 
@@ -586,6 +717,7 @@ elseif ($Mode -eq "ProcessHunter") {
                 RAM_MB = [Math]::Round(($p.WorkingSet64 / 1MB), 2)
                 Reason = $reason
                 Severity = $severity
+                IsKillable = (-not $isProtected)
             }
         }
     }
@@ -600,7 +732,7 @@ elseif ($Mode -eq "ProcessHunter") {
     } else {
         if ($suspiciousList.Count -gt 0) {
             Write-Host "`n[!] CẢNH BÁO: Phát hiện $($suspiciousList.Count) tiến trình bất thường/nguy hiểm:" -ForegroundColor Red
-            $suspiciousList | Format-Table -Property PID, Name, RAM_MB, Severity, Reason -AutoSize
+            $suspiciousList | Format-Table -Property PID, Name, RAM_MB, Severity, Reason, IsKillable -AutoSize
             Write-Host "`nĐể tiêu diệt một tiến trình độc hại, dùng lệnh: Stop-Process -Id <PID> -Force" -ForegroundColor Yellow
         } else {
             Write-Host "[+] Toàn bộ tiến trình đang hoạt động trên RAM đều hợp lệ và an toàn!" -ForegroundColor Green
@@ -670,7 +802,7 @@ elseif ($Mode -eq "HostsShield") {
             $trimmed = $line.Trim()
             if (-not $trimmed -or $trimmed.StartsWith("#")) { continue }
 
-            # Bỏ qua localhost chuẩn (Fix PS-BUG-06: Loại trừ loopback chuẩn 127.0.0.1 và ::1 localhost)
+            # Bỏ qua localhost chuẩn (Fix PS-BUG-06)
             if ($trimmed -match '^\s*(127\.0\.0\.1|::1)\s+localhost\s*$') {
                 continue
             }
@@ -700,7 +832,7 @@ elseif ($Mode -eq "HostsShield") {
     }
 }
 
-# 7. QUẢN LÝ KHU CÁCH LY (List / Restore / Wipe)
+# 7. QUẢN LÝ KHU CÁCH LY (List / Restore an toàn toàn vẹn / Wipe)
 elseif ($Mode -eq "QuarantineList") {
     $manifest = @(Get-QuarantineManifest)
     if ($OutputFormat -eq 'JSON') {
@@ -748,12 +880,41 @@ elseif ($Mode -eq "QuarantineRestore") {
     $restoreDest = $targetEntry.OriginalPath
     $restoreStatus = "Failed"
 
+    # Kiểm tra bảo mật đường dẫn: Chống Path Traversal
+    if ([string]::IsNullOrWhiteSpace($restoreDest) -or $restoreDest.Contains('..') -or -not [System.IO.Path]::IsPathRooted($restoreDest)) {
+        $msg = "Đường dẫn gốc trong manifest không an toàn: $restoreDest"
+        if ($OutputFormat -eq 'JSON') {
+            [PSCustomObject]@{ Status = "Error"; Message = $msg } | ConvertTo-Json -Compress
+        } else {
+            Write-Host "[!] Lỗi: $msg" -ForegroundColor Red
+        }
+        exit 1
+    }
+
     if (Test-Path $quarantineFile) {
+        # Kiểm tra tính toàn vẹn (Integrity Check) qua mã băm SHA256
+        if ($targetEntry.Sha256) {
+            $currentSha = (Get-FileHash -Path $quarantineFile -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
+            if ($currentSha -ne $targetEntry.Sha256) {
+                $integrityErr = "CẢNH BÁO TOÀN VẸN: Tệp tin trên đĩa không khớp mã băm ban đầu (có thể đã bị chỉnh sửa hoặc giả mạo). Từ chối khôi phục để bảo vệ hệ thống!"
+                if ($OutputFormat -eq 'JSON') {
+                    [PSCustomObject]@{ Status = "IntegrityViolation"; Message = $integrityErr; Expected = $targetEntry.Sha256; Actual = $currentSha } | ConvertTo-Json -Compress
+                } else {
+                    Write-Host "[!] $integrityErr" -ForegroundColor Red
+                }
+                exit 1
+            }
+        }
+
         try {
             $parentDir = Split-Path -Parent $restoreDest
             if (-not (Test-Path $parentDir)) {
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
             }
+
+            # Bỏ cờ ReadOnly trước khi khôi phục
+            try { (Get-Item $quarantineFile).IsReadOnly = $false } catch {}
+
             Move-Item -Path $quarantineFile -Destination $restoreDest -Force -ErrorAction Stop
             $restoreStatus = "Success"
 
@@ -787,12 +948,13 @@ elseif ($Mode -eq "QuarantineWipe") {
 
     Get-ChildItem -Path $QuarantineDir -Filter "*.quarantined" -File -ErrorAction SilentlyContinue | ForEach-Object {
         try {
+            # Bỏ ReadOnly để xóa sạch
+            $_.IsReadOnly = $false
             Remove-Item -Path $_.FullName -Force -ErrorAction Stop
             $deletedCount++
         } catch {}
     }
 
-    # Làm rỗng manifest
     Save-QuarantineManifest -Items @()
 
     if ($OutputFormat -eq 'JSON') {
@@ -810,7 +972,6 @@ elseif ($Mode -eq "EicarTest") {
     $destDir = if ($TargetPath -and (Test-Path $TargetPath)) { $TargetPath } else { [System.IO.Path]::Combine($env:USERPROFILE, "Downloads") }
     $testFilePath = Join-Path $destDir "SCOM_EICAR_Standard_Test.com.txt"
 
-    # Xây dựng chuỗi EICAR an toàn với [char]36 ($), tránh lỗi parse biến
     $eicarPayload = 'X5O!P%@AP[4\PZX54(P^)7CC)7}' + [char]36 + 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!' + [char]36 + 'H+H*'
     $status = "Created"
     $message = ""
@@ -820,7 +981,7 @@ elseif ($Mode -eq "EicarTest") {
         $message = "Đã tạo thành công tệp kiểm thử EICAR tại: $testFilePath"
     } catch {
         $status = "BlockedOrError"
-        $message = "Windows Defender hoặc phần mềm bảo vệ đã can thiệp chặn tạo tệp tức thì (Hệ thống bảo vệ đang hoạt động rất tốt): $($_.Exception.Message)"
+        $message = "Windows Defender hoặc phần mềm bảo vệ đã can thiệp chặn tạo tệp tức thì: $($_.Exception.Message)"
     }
 
     if ($OutputFormat -eq 'JSON') {

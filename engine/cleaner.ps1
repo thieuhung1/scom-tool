@@ -1,4 +1,4 @@
-﻿# ============================================================================
+# ============================================================================
 # SCOM CYBERSHIELD v3.0 - SYSTEM CLEANER & OPTIMIZER MODULE
 # ============================================================================
 [CmdletBinding()]
@@ -85,19 +85,26 @@ if ($Action -eq "HostsReset") {
     $hostsPath = "C:\Windows\System32\drivers\etc\hosts"
     $status = "Failed"
     $msg = ""
+    $backupPath = ""
     try {
+        if (Test-Path $hostsPath) {
+            $timestamp = [DateTime]::Now.ToString("yyyyMMdd_HHmmss")
+            $backupPath = "$hostsPath.backup_$timestamp"
+            Copy-Item -Path $hostsPath -Destination $backupPath -Force -ErrorAction Stop
+        }
         $defaultHosts = "# Microsoft Windows default hosts file`r`n127.0.0.1 localhost`r`n::1 localhost`r`n"
         [System.IO.File]::WriteAllText($hostsPath, $defaultHosts, [System.Text.Encoding]::UTF8)
         $status = "Success"
-        $msg = "Đã khôi phục file hosts về mặc định của Microsoft."
+        $msg = "Đã khôi phục file hosts về mặc định của Microsoft. Đã tự động tạo bản sao lưu tại: $backupPath"
     } catch {
         $status = "Error: $($_.Exception.Message)"
-        $msg = "Không thể ghi đè file hosts (Yêu cầu quyền Administrator)."
+        $msg = "Không thể sửa file hosts (Yêu cầu quyền Administrator): $($_.Exception.Message)"
     }
     $results += [PSCustomObject]@{
         Label = "Hosts Shield Reset"
         Status = $status
         Message = $msg
+        BackupPath = $backupPath
     }
 }
 

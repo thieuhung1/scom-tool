@@ -1,13 +1,30 @@
 {
   "name": "scom-cybershield",
-  "version": "3.0.0",
-  "description": "SCOM CyberShield v3.0 - Computer Protection, Virus Scanner & System Cleaner",
+  "version": "3.1.0",
+  "description": "SCOM CyberShield v3.1 PRO - Computer Protection, Virus Scanner & System Cleaner",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "gui": "electron .",
     "cli": "bin\\run.bat",
-    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_core_scanner.ps1"
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_core_scanner.ps1",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.scom.cybershield",
+    "productName": "SCOM CyberShield",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "files": [
+      "src/**/*",
+      "engine/**/*",
+      "package.json"
+    ]
   },
   "keywords": [
     "antivirus",

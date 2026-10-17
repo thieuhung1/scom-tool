@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
+const fs = require('fs');
 
 let mainWindow = null;
 let currentChildProcess = null;
@@ -10,6 +11,10 @@ const projectRoot = path.join(__dirname, '..');
 const engineDir = path.join(projectRoot, 'engine');
 const coreScannerScript = path.join(engineDir, 'core_scanner.ps1');
 const cleanerScript = path.join(engineDir, 'cleaner.ps1');
+const cancelFlagPath = path.join(os.tmpdir(), 'scom_cancel_scan.flag');
+
+// Protected PIDs & System processes (System Idle, System, Session Manager, etc.)
+const PROTECTED_PIDS = new Set([0, 4]);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -24,7 +29,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false
+      sandbox: true
     }
   });
 
@@ -97,10 +102,17 @@ function runPowerShellScript(scriptPath, args = []) {
       const text = data.toString('utf8');
       stdoutBuffer += text;
 
-      // Stream lines to UI
+      // Stream lines and progress events to UI
       const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
       lines.forEach(line => {
-        if (!line.startsWith('{') && !line.startsWith('}')) {
+        if (line.startsWith('JSON_EVENT:')) {
+          try {
+            const ev = JSON.parse(line.substring('JSON_EVENT:'.length));
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('scan:progress', ev);
+            }
+          } catch {}
+        } else if (!line.startsWith('{') && !line.startsWith('}')) {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('scan:log', line);
           }
@@ -116,19 +128,22 @@ function runPowerShellScript(scriptPath, args = []) {
     ps.on('close', (code) => {
       currentChildProcess = null;
 
-      // Extract JSON from stdoutBuffer
-      const trimmed = stdoutBuffer.trim();
-      let parsed = null;
+      // Extract JSON from stdoutBuffer (ignoring JSON_EVENT prefixes)
+      const cleanLines = stdoutBuffer
+        .split(/\r?\n/)
+        .filter(l => !l.startsWith('JSON_EVENT:'))
+        .join('\n')
+        .trim();
 
+      let parsed = null;
       try {
-        parsed = JSON.parse(trimmed);
+        parsed = JSON.parse(cleanLines);
       } catch (e) {
-        // Try finding JSON block {...}
-        const start = trimmed.indexOf('{');
-        const end = trimmed.lastIndexOf('}');
+        const start = cleanLines.indexOf('{');
+        const end = cleanLines.lastIndexOf('}');
         if (start !== -1 && end !== -1 && end > start) {
           try {
-            parsed = JSON.parse(trimmed.substring(start, end + 1));
+            parsed = JSON.parse(cleanLines.substring(start, end + 1));
           } catch (innerErr) {
             console.error('Failed to parse inner JSON:', innerErr);
           }
@@ -143,7 +158,7 @@ function runPowerShellScript(scriptPath, args = []) {
         } else {
           resolve({
             status: 'Completed',
-            rawOutput: trimmed
+            rawOutput: cleanLines
           });
         }
       }
@@ -178,11 +193,18 @@ ipcMain.handle('dialog:select-file', async () => {
   return result.filePaths[0];
 });
 
-// Scanner: Start Scan
+// Scanner: Start Scan (Clears cancel flag)
 ipcMain.handle('scan:start', async (event, params = {}) => {
   const mode = params.mode || 'Quick';
   const targetPath = params.targetPath || '';
   const autoQuarantine = !!params.autoQuarantine;
+
+  // Clear any existing cancellation flag
+  try {
+    if (fs.existsSync(cancelFlagPath)) {
+      fs.unlinkSync(cancelFlagPath);
+    }
+  } catch {}
 
   const scriptArgs = [
     '-Mode', mode,
@@ -208,8 +230,12 @@ ipcMain.handle('scan:start', async (event, params = {}) => {
   }
 });
 
-// Scanner: Stop Scan
+// Scanner: Stop Scan (Cooperative flag + kill)
 ipcMain.handle('scan:stop', () => {
+  try {
+    fs.writeFileSync(cancelFlagPath, 'CANCEL', 'utf8');
+  } catch {}
+
   if (currentChildProcess) {
     try {
       currentChildProcess.kill();
@@ -235,21 +261,41 @@ ipcMain.handle('process:list', async () => {
   }
 });
 
-// Process Hunter: Kill PID
+// Process Hunter: Kill PID (FIX: Eliminates Command Injection vulnerability)
 ipcMain.handle('process:kill', async (event, pid) => {
-  return new Promise((resolve) => {
-    const ps = spawn('powershell.exe', [
-      '-NoProfile',
-      '-Command',
-      `Stop-Process -Id ${pid} -Force -ErrorAction Stop; exit 0`
-    ]);
+  // Validate pid is strictly a positive integer and not a protected system PID
+  const cleanPid = Number(pid);
+  if (!Number.isInteger(cleanPid) || cleanPid <= 4 || PROTECTED_PIDS.has(cleanPid)) {
+    return {
+      success: false,
+      error: 'PID không hợp lệ hoặc thuộc tiến trình hệ thống được bảo vệ.',
+      pid
+    };
+  }
 
-    ps.on('close', (code) => {
-      resolve({ success: code === 0, pid });
+  return new Promise((resolve) => {
+    // Use taskkill.exe with arguments array - NO shell string interpolation
+    const tk = spawn('taskkill.exe', ['/F', '/PID', String(cleanPid)], {
+      windowsHide: true
     });
 
-    ps.on('error', (err) => {
-      resolve({ success: false, error: err.message, pid });
+    let errOutput = '';
+    tk.stderr.on('data', (d) => { errOutput += d.toString(); });
+
+    tk.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, pid: cleanPid });
+      } else {
+        resolve({
+          success: false,
+          error: errOutput.trim() || `Không thể dừng tiến trình PID ${cleanPid} (Mã lỗi: ${code})`,
+          pid: cleanPid
+        });
+      }
+    });
+
+    tk.on('error', (err) => {
+      resolve({ success: false, error: err.message, pid: cleanPid });
     });
   });
 });
@@ -321,10 +367,13 @@ ipcMain.handle('quarantine:list', async () => {
 
 // Quarantine: Restore
 ipcMain.handle('quarantine:restore', async (event, restoreId) => {
+  if (typeof restoreId !== 'string' || !restoreId.trim()) {
+    return { status: 'Error', message: 'RestoreId không hợp lệ' };
+  }
   try {
     return await runPowerShellScript(coreScannerScript, [
       '-Mode', 'QuarantineRestore',
-      '-RestoreId', restoreId,
+      '-RestoreId', restoreId.trim(),
       '-OutputFormat', 'JSON',
       '-NonInteractive'
     ]);
@@ -353,7 +402,9 @@ ipcMain.handle('eicar:create', async (event, targetPath = '') => {
     '-OutputFormat', 'JSON',
     '-NonInteractive'
   ];
-  if (targetPath) args.push('-TargetPath', targetPath);
+  if (targetPath && typeof targetPath === 'string') {
+    args.push('-TargetPath', targetPath);
+  }
 
   try {
     return await runPowerShellScript(coreScannerScript, args);

@@ -157,6 +157,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Realtime Progress Listener
+  if (window.api?.onScanProgress) {
+    window.api.onScanProgress((prog) => {
+      if (prog && prog.scanned) {
+        statFilesScanned.textContent = prog.scanned;
+        if (prog.current) {
+          scanCurrentPath.textContent = `[Đang quét ${prog.scanned}]: ${prog.current}`;
+        }
+      }
+    });
+  }
+
   // Start Scan Helper
   async function executeScan(params) {
     setScanningState(true);
@@ -319,28 +331,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     list.forEach(p => {
       const tr = document.createElement('tr');
+      const actionBtn = (p.IsKillable === false || p.PID <= 4)
+        ? '<span class="badge blue">Hệ Thống</span>'
+        : `<button class="btn btn-danger btn-sm" onclick="killPid(${p.PID}, '${p.Name}')">Diệt PID</button>`;
+
       tr.innerHTML = `
         <td style="font-family: var(--font-mono);">${p.PID}</td>
         <td><strong>${p.Name}</strong></td>
         <td>${p.RAM_MB} MB</td>
         <td><span class="badge red">${p.Severity}</span></td>
         <td><span class="badge amber">${p.Reason}</span></td>
-        <td>
-          <button class="btn btn-danger btn-sm" onclick="killPid(${p.PID}, '${p.Name}')">Diệt PID</button>
-        </td>
+        <td>${actionBtn}</td>
       `;
       processTableBody.appendChild(tr);
     });
   }
 
   window.killPid = async (pid, name) => {
-    if (confirm(`Bạn có chắc muốn cưỡng chế dừng tiến trình ${name} (PID: ${pid}) không?`)) {
-      const res = await window.api.killProcess(pid);
+    const cleanPid = Number(pid);
+    if (!Number.isInteger(cleanPid) || cleanPid <= 4) {
+      showToast('Không thể dừng tiến trình cốt lõi của hệ thống!', 'error');
+      return;
+    }
+
+    if (confirm(`⚠️ CẢNH BÁO AN TOÀN:\nBạn có chắc chắn muốn cưỡng chế tiêu diệt tiến trình "${name}" (PID: ${cleanPid}) không?\n\nLưu ý: Nếu tiến trình đang mở tệp dữ liệu, dữ liệu chưa lưu có thể bị mất.`)) {
+      const res = await window.api.killProcess(cleanPid);
       if (res.success) {
-        showToast(`Đã tiêu diệt tiến trình ${name} (PID: ${pid}) thành công!`, 'success');
+        showToast(`Đã tiêu diệt tiến trình ${name} (PID: ${cleanPid}) thành công!`, 'success');
         loadProcesses();
       } else {
-        showToast(`Không thể dừng tiến trình ${pid}: ${res.error || 'Quyền bị từ chối'}`, 'error');
+        showToast(`Không thể dừng tiến trình ${cleanPid}: ${res.error || 'Quyền bị từ chối'}`, 'error');
       }
     }
   };
