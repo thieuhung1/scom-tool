@@ -17,3 +17,8 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# Electron build artifacts
+dist/
+release/
+*.exe

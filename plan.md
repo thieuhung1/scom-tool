@@ -89,8 +89,10 @@ Hệ thống tách biệt hoàn toàn thành 3 tầng độc lập: **CLI Launch
   - [x] Kiểm thử giới hạn tài nguyên quét & loại trừ thư mục nặng (`.git`, `node_modules`).
   - [x] Kiểm thử cơ chế hủy quét hợp tác (`Cooperative Cancellation Flag`).
   - [x] Kiểm thử Process Hunter bảo vệ tiến trình hệ thống cốt lõi.
-- [ ] Thiết lập GitHub Actions tự động kiểm tra lỗi cú pháp PowerShell (`PSScriptAnalyzer`) và JavaScript.
-- [ ] Đóng gói bản phát hành hoàn chỉnh (`v3.1.0`) qua `electron-builder`.
+- [x] Viết bộ kiểm thử tự động cho module dọn dẹp hệ thống `tests/test_cleaner.ps1` (7 bài kiểm tra, kiểm tra dọn Temp, DNS, sao lưu Hosts).
+- [x] Tích hợp bộ chạy kiểm thử tổng hợp `tests/run_all_tests.ps1` đạt **19 / 19 Tests PASS (100%)**.
+- [x] Thiết lập luồng GitHub Actions CI/CD `.github/workflows/ci.yml` tự động kiểm tra cú pháp & bảo mật PowerShell (`PSScriptAnalyzer`), chạy test tự động và build thử nghiệm ứng dụng.
+- [x] Cấu hình và đóng gói ứng dụng độc lập với `electron-builder` (`npm run pack` tạo bản build `dist/win-unpacked/SCOM CyberShield.exe` và `npm run dist` tạo bộ cài đặt NSIS).
 
 ---
 

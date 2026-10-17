@@ -1,0 +1,78 @@
+name: SCOM CyberShield CI/CD & Quality Gate
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-verify:
+    name: Automated Tests & Security Verification
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Analyze PowerShell Code Security (PSScriptAnalyzer)
+        shell: powershell
+        run: |
+          Write-Host "[*] Kiểm tra cú pháp và bảo mật mã nguồn PowerShell với PSScriptAnalyzer..."
+          $errors = Invoke-ScriptAnalyzer -Path ./engine -Severity Error -Recurse
+          if ($errors) {
+            Write-Host "[!] Phát hiện lỗi PSScriptAnalyzer:" -ForegroundColor Red
+            $errors | Format-Table -AutoSize
+            exit 1
+          } else {
+            Write-Host "[+] Toàn bộ mã nguồn trong engine/ đều đạt tiêu chuẩn PSScriptAnalyzer!" -ForegroundColor Green
+          }
+
+      - name: Run Full Automated Test Suite (19 Test Cases)
+        shell: powershell
+        run: npm test
+
+      - name: Verify Electron Package Build (Dry-run Directory)
+        shell: powershell
+        run: npm run pack
+
+  build-release:
+    name: Build & Package Windows Installer (.exe)
+    needs: test-and-verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Standalone Windows Installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist
+
+      - name: Upload Release Artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

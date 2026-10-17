@@ -7,8 +7,11 @@
     "start": "electron .",
     "gui": "electron .",
     "cli": "bin\\run.bat",
-    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_core_scanner.ps1",
-    "dist": "electron-builder --win"
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run_all_tests.ps1",
+    "test:core": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_core_scanner.ps1",
+    "test:cleaner": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_cleaner.ps1",
+    "dist": "electron-builder --win",
+    "pack": "electron-builder --dir"
   },
   "build": {
     "appId": "com.scom.cybershield",
@@ -37,6 +40,7 @@
   "author": "SCOM CyberShield Team",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
   }
 }

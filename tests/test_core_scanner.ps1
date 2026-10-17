@@ -141,4 +141,6 @@ Write-Host "====================================================================
 
 if ($passedCount -ne $totalTests) {
     exit 1
+} else {
+    exit 0
 }
