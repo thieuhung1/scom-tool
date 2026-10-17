@@ -65,11 +65,11 @@ Hệ thống tách biệt hoàn toàn thành 3 tầng độc lập: **CLI Launch
 - [x] Bổ sung chế độ xuất dữ liệu `-OutputFormat JSON` và `-NonInteractive`.
 
 ### 🔄 Giai đoạn 2 (Tuần 2): Hoàn thiện Giao diện CLI & Quản lý Cách ly thông minh
-- [ ] Xây dựng `bin/SCOM_CLI.bat` và `bin/run.bat` với cơ chế tự nâng quyền UAC chuẩn xác.
-- [ ] Xây dựng hệ thống Cách ly có khả năng khôi phục (`Quarantine & Restore`):
-  - [ ] Đổi tên tệp sang `.quarantined` và lưu đường dẫn gốc kèm thời gian vào `quarantine_manifest.json`.
-  - [ ] Cho phép người dùng khôi phục (`Restore`) tệp về vị trí ban đầu hoặc xóa vĩnh viễn (`Secure Wipe`).
-- [ ] Tích hợp module `engine/cleaner.ps1` dọn dẹp `User Temp`, `Windows Temp`, `Prefetch`, `CrashDumps`, `WER`, `Recycle Bin` và `DNS Cache`.
+- [x] Xây dựng `bin/SCOM_CLI.bat` và `bin/run.bat` với cơ chế tự nâng quyền UAC chuẩn xác.
+- [x] Xây dựng hệ thống Cách ly có khả năng khôi phục (`Quarantine & Restore`):
+  - [x] Đổi tên tệp sang `.quarantined` và lưu đường dẫn gốc kèm thời gian vào `quarantine_manifest.json`.
+  - [x] Cho phép người dùng khôi phục (`Restore`) tệp về vị trí ban đầu hoặc xóa vĩnh viễn (`Secure Wipe`).
+- [x] Tích hợp module `engine/cleaner.ps1` dọn dẹp `User Temp`, `Windows Temp`, `Prefetch`, `CrashDumps`, `WER`, `Recycle Bin` và `DNS Cache`.
 
 ### 🚀 Giai đoạn 3 (Tuần 3): Phát triển Giao diện Đồ họa (GUI Dashboard)
 - [ ] Xây dựng tầng giao diện trong `src/` kết nối với `engine/core_scanner.ps1` qua luồng JSON bất đồng bộ.

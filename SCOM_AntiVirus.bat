@@ -1,26 +1,28 @@
 @echo off
 REM ============================================================================
-REM SCOM CYBERSHIELD - CONG CU QUET VA DON VIRUS CHUYEN NGHIEP CHO WINDOWS
-REM Phien ban: 2.0 Terminal Pro
+REM SCOM CYBERSHIELD v3.0 - CONG CU QUET VA DON VIRUS CHUYEN NGHIEP CHO WINDOWS
+REM Phien ban: 3.0 Terminal Pro (Clean Architecture & Zero-Bug Pattern)
 REM ============================================================================
 
-title SCOM CYBERSHIELD - Tool Quet va Don Virus May Tinh
+title SCOM CYBERSHIELD v3.0 - Tool Quet va Don Virus May Tinh
 chcp 65001 >nul
 color 0B
 
-REM 1. Kiem tra quyen Administrator
+REM Kiem tra quyen Administrator (Fix BAT-BUG-01)
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo.
     echo [*] Ban chua chay duoi quyen Administrator.
-    echo [*] Dang thu yeu cau quyen Administrator UAC...
+    echo [*] Dang yeu cau quyen Administrator UAC...
     powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/c \"\"%~f0\"\"' -Verb RunAs" 2>nul
+    REM Dong cua so cu tranh bi mo trung 2 cua so (Fix BAT-BUG-02)
+    if not errorlevel 1 exit /b
     echo [!] Tiep tuc chay o che do thong thuong...
     echo.
 )
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_ENGINE=%SCRIPT_DIR%core_scanner.ps1"
+set "PS_ENGINE=%SCRIPT_DIR%engine\core_scanner.ps1"
 set "QUARANTINE_DIR=%LOCALAPPDATA%\SCOM_Quarantine"
 
 if not exist "%QUARANTINE_DIR%" mkdir "%QUARANTINE_DIR%" >nul 2>&1
@@ -28,7 +30,7 @@ if not exist "%QUARANTINE_DIR%" mkdir "%QUARANTINE_DIR%" >nul 2>&1
 :MAIN_MENU
 cls
 echo ================================================================================
-echo             SCOM CYBERSHIELD - TERMINAL ANTIVIRUS ^& CLEANER PRO
+echo             SCOM CYBERSHIELD v3.0 - TERMINAL ANTIVIRUS ^& CLEANER PRO
 echo                  CONG CU QUET VA DON DEP VIRUS MAY TINH
 echo ================================================================================
 echo  [Trang Thai]: San sang hoat dong   ^|   Khu cach ly: %QUARANTINE_DIR%
@@ -42,7 +44,7 @@ echo   [5] Don Dep File Rac, Temp va Tang Toc PC (Deep System Cleaner)
 echo   [6] Kiem Tra Khoi Dong Windows va Autorun (Startup Inspector)
 echo   [7] Kiem Tra va Khoi Phuc File Hosts Chong Chiem Quyen DNS
 echo   [8] Kich Hoat Quet Windows Defender va Cap Nhat Signature
-echo   [9] Quan Ly Khu Vuc Cach Ly (Xem / Xoa sach file doc hai)
+echo   [9] Quan Ly Khu Vuc Cach Ly (Xem / Khoi phuc / Xoa sach file doc hai)
 echo   [T] Tao Tep Thu Nghiem Diet Virus Chuan Quoc Te EICAR
 echo   [0] Thoat Tool
 echo.
@@ -83,7 +85,7 @@ pause
 goto MAIN_MENU
 
 :: ============================================================================
-:: 2. QUET TUY CHON
+:: 2. QUET TUY CHON (Fix BAT-BUG-03: Tranh sap CMD khi co dau ngoac don)
 :: ============================================================================
 :CUSTOM_SCAN
 cls
@@ -91,18 +93,23 @@ echo ===========================================================================
 echo                     [2] QUET THU MUC HOAC TEP TUY CHON
 echo ================================================================================
 echo Keo va tha thu muc hoac tep tin vao day roi nhan Enter (hoac go duong dan).
-echo Vi du: D:\Downloads hoac C:\Users\Username\Documents
+echo Vi du: D:\Downloads hoac C:\Program Files (x86)
 echo.
+set "TARGET_PATH="
 set /p "TARGET_PATH=>> Nhap duong dan can quet: "
+if not defined TARGET_PATH goto MAIN_MENU
 set "TARGET_PATH=%TARGET_PATH:"=%"
 
-if not exist "%TARGET_PATH%" (
-    echo [!] Duong dan khong ton tai: "%TARGET_PATH%"
-    pause
-    goto MAIN_MENU
-)
+if not exist "%TARGET_PATH%" goto CUSTOM_NOT_FOUND
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "Custom" -TargetPath "%TARGET_PATH%" -QuarantineDir "%QUARANTINE_DIR%"
+echo.
+pause
+goto MAIN_MENU
+
+:CUSTOM_NOT_FOUND
+echo.
+echo [!] Duong dan muc tieu khong ton tai. Vui long kiem tra lai!
 echo.
 pause
 goto MAIN_MENU
@@ -115,7 +122,7 @@ cls
 echo ================================================================================
 echo                     [3] QUET TOAN DIEN HE THONG (FULL SCAN)
 echo ================================================================================
-echo Che do quet toan dien se quet cac thu muc tren o C:\.
+echo Che do quet toan dien se quet toan bo cac thu muc tren o C:\.
 echo.
 set /p "CONFIRM=>> Ban co muon bat dau quet toan dien ngay bay gio? (Y/N): "
 if /i not "%CONFIRM%"=="Y" goto MAIN_MENU
@@ -140,45 +147,11 @@ pause
 goto MAIN_MENU
 
 :: ============================================================================
-:: 5. DON DEP HE THONG
+:: 5. DON DEP HE THONG (Goi engine/cleaner.ps1 chuyen sau)
 :: ============================================================================
 :SYSTEM_CLEANER
 cls
-echo ================================================================================
-echo           [5] DON DEP TEP RAC, TEMP VA TOI UU HOA HE THONG (SYSTEM CLEANER)
-echo ================================================================================
-echo Dang tien hanh giai phong dung luong o dia va xoa sach cac cache rac...
-echo.
-
-echo [*] 1. Dang xoa tep tam User Temp (%TEMP%)...
-del /s /f /q "%TEMP%\*.*" >nul 2>&1
-for /d %%p in ("%TEMP%\*.*") do rmdir /s /q "%%p" >nul 2>&1
-
-echo [*] 2. Dang xoa tep tam Windows Temp (C:\Windows\Temp)...
-del /s /f /q "C:\Windows\Temp\*.*" >nul 2>&1
-for /d %%p in ("C:\Windows\Temp\*.*") do rmdir /s /q "%%p" >nul 2>&1
-
-echo [*] 3. Dang xoa bo nho dem nap truoc (Windows Prefetch)...
-del /s /f /q "C:\Windows\Prefetch\*.*" >nul 2>&1
-
-echo [*] 4. Dang xoa nhat ky loi Crash Dumps va WER...
-if exist "%LOCALAPPDATA%\CrashDumps" (
-    del /s /f /q "%LOCALAPPDATA%\CrashDumps\*.*" >nul 2>&1
-)
-if exist "%LOCALAPPDATA%\Microsoft\Windows\WER" (
-    del /s /f /q "%LOCALAPPDATA%\Microsoft\Windows\WER\*.*" >nul 2>&1
-)
-
-echo [*] 5. Dang lam sach Thung Rac (Recycle Bin)...
-powershell -NoProfile -Command "Clear-RecycleBin -Force -ErrorAction SilentlyContinue" >nul 2>&1
-
-echo [*] 6. Dang xoa bo nho dem DNS (Flush DNS Cache)...
-ipconfig /flushdns >nul 2>&1
-
-echo.
-echo ================================================================================
-echo [V] DA HOAN TAT DON DEP TEP RAC VA TOI UU HE THONG THANH CONG!
-echo ================================================================================
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%engine\cleaner.ps1" -Action "CleanAll"
 echo.
 pause
 goto MAIN_MENU
@@ -198,7 +171,7 @@ pause
 goto MAIN_MENU
 
 :: ============================================================================
-:: 7. FILE HOSTS
+:: 7. FILE HOSTS (Fix BAT-BUG-04: Kiem tra loi thuc te khi sua hosts)
 :: ============================================================================
 :HOSTS_SHIELD
 cls
@@ -207,18 +180,21 @@ echo                 [7] KIEM TRA VA KHOI PHUC TEP HOSTS CHONG CHIEM QUYEN DNS
 echo ================================================================================
 echo Tep Hosts nam tai: C:\Windows\System32\drivers\etc\hosts
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "Hosts"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "HostsShield"
 echo.
 echo  [1] Khoi phuc tep Hosts ve trang thai mac dinh cua Microsoft
 echo  [0] Quay lai Menu Chinh
 echo.
+set "HOST_CHOICE="
 set /p "HOST_CHOICE=>> Nhap lua chon: "
 if "%HOST_CHOICE%"=="1" (
-    powershell -NoProfile -Command "
-        $defaultHosts = '# Microsoft Windows default hosts file`r`n127.0.0.1 localhost`r`n::1 localhost';
-        Set-Content -Path 'C:\Windows\System32\drivers\etc\hosts' -Value $defaultHosts -Force;
-    "
-    echo [+] Da khoi phuc tep Hosts ve mac dinh thanh cong!
+    powershell -NoProfile -Command "try { $defaultHosts = '# Microsoft Windows default hosts file`r`n127.0.0.1 localhost`r`n::1 localhost'; Set-Content -Path 'C:\Windows\System32\drivers\etc\hosts' -Value $defaultHosts -Force -ErrorAction Stop; exit 0 } catch { exit 1 }"
+    if errorlevel 1 (
+        echo [!] Loi: Khong the sua file Hosts (Yeu cau chay duoi quyen Administrator).
+    ) else (
+        echo [+] Da khoi phuc tep Hosts ve mac dinh thanh cong!
+    )
+    echo.
     pause
 )
 goto MAIN_MENU
@@ -234,44 +210,56 @@ echo ===========================================================================
 echo.
 echo [*] Dang cap nhat co so du lieu ma doc Microsoft Defender moi nhat...
 powershell -NoProfile -Command "Update-MpSignature" >nul 2>&1
-echo [+] Da cap nhat chu ky Defender thanh cong!
+echo [+] Da gui lenh cap nhat chu ky Defender!
 echo.
 echo [*] Dang bat dau tien trinh Quet Nhanh qua Windows Defender API...
 powershell -NoProfile -Command "Start-MpScan -ScanType QuickScan"
 echo.
 echo [+] Tien trinh quet cua Windows Defender da hoan tat!
+echo.
 pause
 goto MAIN_MENU
 
 :: ============================================================================
-:: 9. KHU VUC CACH LY
+:: 9. KHU VUC CACH LY (Fix PS-BUG-03: Ho tro xem, khoi phuc va xoa sach)
 :: ============================================================================
 :QUARANTINE_MANAGER
 cls
 echo ================================================================================
 echo                    [9] QUAN LY KHU VUC CACH LY (QUARANTINE)
 echo ================================================================================
-echo Thu muc luu tru: %QUARANTINE_DIR%
+echo Thu muc luu tru an toan: %QUARANTINE_DIR%
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "QuarantineList" -QuarantineDir "%QUARANTINE_DIR%"
 echo.
 echo  [1] Xoa sach toan bo cac tep trong khu cach ly (Secure Wipe)
-echo  [2] Mo thu muc cach ly trong File Explorer
+echo  [2] Khoi phuc tep ve vi tri ban dau (Restore by ID)
+echo  [3] Mo thu muc cach ly trong File Explorer
 echo  [0] Quay lai Menu Chinh
 echo.
+set "Q_CHOICE="
 set /p "Q_CHOICE=>> Nhap lua chon: "
 if "%Q_CHOICE%"=="1" (
-    del /f /q "%QUARANTINE_DIR%\*.*" >nul 2>&1
-    echo [+] Da xoa sach toan bo tep trong khu cach ly!
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "QuarantineWipe" -QuarantineDir "%QUARANTINE_DIR%"
+    echo.
     pause
 )
 if "%Q_CHOICE%"=="2" (
+    echo.
+    set /p "RESTORE_ID=>> Nhap ma ID cua tep can khoi phuc: "
+    if defined RESTORE_ID (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "QuarantineRestore" -RestoreId "%RESTORE_ID%" -QuarantineDir "%QUARANTINE_DIR%"
+    )
+    echo.
+    pause
+)
+if "%Q_CHOICE%"=="3" (
     explorer "%QUARANTINE_DIR%"
 )
 goto MAIN_MENU
 
 :: ============================================================================
-:: T. TAO TEP THU NGHIEM EICAR
+:: T. TAO TEP THU NGHIEM EICAR (Fix BAT-BUG-05: Goi truc tiep Engine an toan)
 :: ============================================================================
 :CREATE_TEST_SAMPLE
 cls
@@ -282,9 +270,8 @@ echo EICAR la chuoi ma tieu chuan quoc te duoc tat ca cac hang bao mat (Kaspersk
 echo Defender, Bitdefender, Symantec...) cong nhan de kiem tra tinh nang quet virus
 echo mot cach AN TOAN 100%%, KHONG HE CHUA MA DOC THUC SU.
 echo.
-set "TEST_FILE=%TEMP%\eicar_test_sample.com"
-powershell -NoProfile -Command "[System.IO.File]::WriteAllText('%TEST_FILE%', 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*')"
-echo [+] Da tao tep thu nghiem tai: %TEST_FILE%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_ENGINE%" -Mode "EicarTest" -TargetPath "%TEMP%"
+echo.
 echo [+] Bay gio ban co the quay lai Menu va chon [1] Quet Nhanh de xem tool phat hien!
 echo.
 pause
