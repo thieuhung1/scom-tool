@@ -38,27 +38,38 @@ Công cụ bảo vệ máy tính, quét mã độc đa lớp, săn lùng tiến 
 
 ## 🛠️ Hướng Dẫn Cài Đặt & Sử Dụng Nhanh
 
-### Cách 1: Chạy trực tiếp giao diện Terminal Pro (Không cần cài đặt)
+### Cách 1: Chạy trực tiếp giao diện Terminal Pro (Không cần cài đặt Node.js)
 1. Tải hoặc Clone mã nguồn dự án về máy:
-   `git clone [https://github.com/thieuhung1/scom-tool.git](https://github.com/thieuhung1/scom-tool.git)`
-2. Mở thư mục dự án, nhấp đúp chuột vào tệp **`run.bat`** (hoặc **`SCOM_AntiVirus.bat`**).
+   `git clone https://github.com/thieuhung1/scom-tool.git`
+2. Mở thư mục dự án, nhấp đúp chuột vào tệp **`run.bat`** (hoặc `bin\run.bat`).
 3. Nhấn **Yes** khi hộp thoại **UAC (User Account Control)** xuất hiện để cấp quyền Administrator giúp công cụ quét sâu toàn hệ thống.
 4. Nhập phím tương ứng trên Menu (`[1]` đến `[9]`, `[T]`, `[0]`) để sử dụng các tính năng.
 
-### Cách 2: Chạy trực tiếp Engine bằng lệnh PowerShell (Dành cho Quản trị viên / Tích hợp UI)
-Bạn có thể gọi trực tiếp `core_scanner.ps1` với các chế độ linh hoạt:
+### Cách 2: Khởi chạy Giao diện Đồ họa Desktop GUI (Cyberpunk Dark Mode)
+Nếu máy tính của bạn đã có môi trường Node.js:
+```bash
+npm install
+npm start
+```
+Giao diện đồ họa Desktop sẽ tự động mở lên với đầy đủ 5 phân khu chức năng kết nối bất đồng bộ với PowerShell Engine.
+
+### Cách 3: Chạy trực tiếp Engine bằng lệnh PowerShell (Dành cho Quản trị viên / Tích hợp UI)
+Bạn có thể gọi trực tiếp `engine/core_scanner.ps1` với các chế độ linh hoạt:
 
     # 1. Quét nhanh các khu vực trọng yếu (Temp, Downloads, Startup)
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\core_scanner.ps1 -Mode "Quick"
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\core_scanner.ps1 -Mode "Quick"
 
     # 2. Quét một thư mục hoặc tệp tin bất kỳ
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\core_scanner.ps1 -Mode "Custom" -TargetPath "D:\Downloads"
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\core_scanner.ps1 -Mode "Custom" -TargetPath "D:\Downloads"
 
     # 3. Săn lùng tiến trình độc hại / đào coin trên RAM
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\core_scanner.ps1 -Mode "ProcessHunter"
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\core_scanner.ps1 -Mode "ProcessHunter"
 
     # 4. Kiểm tra các mục khởi động cùng Windows
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\core_scanner.ps1 -Mode "Startup"
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\core_scanner.ps1 -Mode "Startup"
+
+    # 5. Xuất định dạng JSON cho ứng dụng bên thứ 3
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\core_scanner.ps1 -Mode "Quick" -NonInteractive -OutputFormat "JSON"
 
 ---
 

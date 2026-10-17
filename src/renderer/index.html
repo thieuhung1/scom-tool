@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCOM CyberShield v3.0 - Security & System Optimization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Window Titlebar -->
+  <header class="titlebar">
+    <div class="titlebar-drag-region">
+      <div class="app-brand">
+        <div class="cyber-shield-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke="#00ff9d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="brand-title">SCOM <span class="accent-text">CYBERSHIELD</span></span>
+        <span class="version-tag">v3.0 PRO</span>
+      </div>
+    </div>
+    <div class="window-controls">
+      <button class="win-btn win-min" id="btnMinimize" title="Thu nhỏ">
+        <svg viewBox="0 0 10 1"><path d="M0 0h10v1H0z" fill="currentColor"/></svg>
+      </button>
+      <button class="win-btn win-max" id="btnMaximize" title="Phóng to / Thu lại">
+        <svg viewBox="0 0 10 10"><path d="M0 0v10h10V0H0zm9 9H1V1h8v8z" fill="currentColor"/></svg>
+      </button>
+      <button class="win-btn win-close" id="btnClose" title="Đóng ứng dụng">
+        <svg viewBox="0 0 10 10"><path d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- App Layout -->
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-status">
+        <div class="status-pulse-dot"></div>
+        <div class="status-info">
+          <span class="status-label">Lá Chắn Hoạt Động</span>
+          <span class="status-sub">Bảo vệ đa lớp thời gian thực</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="tab-scanner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="m12 8 4 4-4 4M8 12h8"/>
+          </svg>
+          <span>Quét & Bảo Vệ</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-process">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span>Thợ Săn Tiến Trình</span>
+          <span class="nav-badge" id="badgeMiner">Hunter</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-cleaner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2v6h6M4 14l5-5 5 5M9 9v12M15 15l5 5"/>
+          </svg>
+          <span>Dọn Rác & Tối Ưu</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-shields">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>Khởi Động & DNS</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-quarantine">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/>
+          </svg>
+          <span>Khu Cách Ly</span>
+          <span class="nav-badge count" id="badgeQuarantine">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="tab-lab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/>
+          </svg>
+          <span>EICAR Test Lab</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-mini-card">
+          <div class="mini-label">MÁY TÍNH HỆ THỐNG</div>
+          <div class="mini-val" id="sysHostName">Đang tải...</div>
+          <div class="mini-sub" id="sysMemUsage">RAM: -- / -- GB</div>
+        </div>
+        <div class="engine-badge">
+          <span>Engine: PowerShell v5+</span>
+          <span class="db-version">DB: 2026.10</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="content-viewport">
+      
+      <!-- ================= TAB 1: SCANNER ================= -->
+      <section class="tab-page active" id="tab-scanner">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Bảng Điều Khiển & Quét Mã Độc</h1>
+            <p class="page-desc">Hệ thống quét 5 lớp nhận diện Heuristic, MZ Binary, Double Extension và đối chiếu Hash.</p>
+          </div>
+          <div class="header-actions">
+            <div class="shield-state-pill secured">
+              <span class="pulse-indicator"></span>
+              <span>Được Bảo Vệ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats Banner -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon cyan">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            </div>
+            <div class="stat-data">
+              <span class="stat-val" id="statFilesScanned">0</span>
+              <span class="stat-name">Tệp Đã Quét Gần Nhất</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="stat-data">
+              <span class="stat-val red-text" id="statThreats">0</span>
+              <span class="stat-name">Mối Đe Dọa Bị Chặn</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="stat-data">
+              <span class="stat-val green-text" id="statQuarantineCount">0</span>
+              <span class="stat-name">Tệp Trong Khu Cách Ly</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="stat-data">
+              <span class="stat-val" id="statEngineLayers">5 Lớp</span>
+              <span class="stat-name">Cơ Chế Zero-Bug</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scan Modes Grid -->
+        <div class="scan-modes-section" id="scanModesContainer">
+          <h2 class="section-title">Lựa Chọn Chế Độ Quét</h2>
+          <div class="scan-cards-grid">
+            
+            <!-- Mode 1: Quick Scan -->
+            <div class="scan-card popular">
+              <div class="popular-ribbon">KHUYÊN DÙNG</div>
+              <div class="card-icon-wrap cyan-glow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+              </div>
+              <h3 class="card-title">Quét Nhanh (Quick Scan)</h3>
+              <p class="card-desc">Quét các khu vực xung yếu: Temp, Downloads, Startup, AppData và Windows Temp.</p>
+              <div class="card-meta">Thời gian ước tính: ~15 - 30 giây</div>
+              <button class="btn btn-primary btn-block" id="btnStartQuickScan">
+                <span>Bắt Đầu Quét Nhanh</span>
+              </button>
+            </div>
+
+            <!-- Mode 2: Custom Scan -->
+            <div class="scan-card">
+              <div class="card-icon-wrap amber-glow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <h3 class="card-title">Quét Tùy Chọn</h3>
+              <p class="card-desc">Kéo thả tệp/thư mục hoặc nhấp chọn để phân tích sâu nội dung nhị phân và mã băm.</p>
+              
+              <div class="drop-zone" id="dropZone">
+                <div class="drop-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                </div>
+                <span class="drop-text" id="dropTargetText">Kéo thả thư mục hoặc tệp vào đây</span>
+              </div>
+
+              <div class="custom-scan-actions">
+                <button class="btn btn-secondary" id="btnBrowseFolder">Chọn Thư Mục</button>
+                <button class="btn btn-secondary" id="btnBrowseFile">Chọn Tệp Tin</button>
+              </div>
+              <button class="btn btn-warning btn-block" id="btnStartCustomScan" disabled>
+                <span>Quét Mục Tiêu Đã Chọn</span>
+              </button>
+            </div>
+
+            <!-- Mode 3: Full Deep Scan -->
+            <div class="scan-card">
+              <div class="card-icon-wrap purple-glow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+              </div>
+              <h3 class="card-title">Quét Toàn Diện (Full Scan)</h3>
+              <p class="card-desc">Phân tích toàn diện mọi phân vùng dữ liệu người dùng (C:\Users, ProgramData).</p>
+              <div class="card-meta">Quét chuyên sâu toàn bộ tệp khả thi</div>
+              <button class="btn btn-secondary btn-block" id="btnStartFullScan">
+                <span>Quét Toàn Diện Hệ Thống</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Live Scanning Progress State (Hidden by default) -->
+        <div class="live-scan-panel hidden" id="liveScanPanel">
+          <div class="scan-status-header">
+            <div class="scan-animation-wrap">
+              <div class="radar-spinner"></div>
+            </div>
+            <div class="scan-info-block">
+              <div class="scan-state-title">ĐANG QUÉT HỆ THỐNG...</div>
+              <div class="scan-current-target" id="scanCurrentPath">Khởi động engine PowerShell an toàn...</div>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btnStopScan">Dừng Quét</button>
+          </div>
+
+          <!-- Realtime Terminal Log -->
+          <div class="scan-terminal">
+            <div class="terminal-bar">
+              <span class="term-title">POWER SHELL SCANNER LOG STREAM</span>
+              <span class="term-badge">JSON-API</span>
+            </div>
+            <div class="terminal-body" id="scanTerminalBody">
+              <div class="log-line info">[*] Khởi tạo kết nối IPC bất đồng bộ...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scan Results Section (Hidden by default) -->
+        <div class="scan-results-panel hidden" id="scanResultsPanel">
+          <div class="results-header" id="resultsHeaderBanner">
+            <div class="results-icon-wrap" id="resultsIconWrap"></div>
+            <div>
+              <h3 class="results-title" id="resultsTitle">Hoàn Tất Quá Trình Quét</h3>
+              <p class="results-sub" id="resultsSubDesc"></p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnDismissResults">Quét Lại</button>
+          </div>
+
+          <div class="threats-table-wrap" id="threatsTableWrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>TÊN TỆP TIN</th>
+                  <th>MỨC ĐỘ NGUY HIỂM</th>
+                  <th>PHÂN LOẠI MÃ ĐỘC</th>
+                  <th>ĐƯỜNG DẪN</th>
+                  <th>HÀNH ĐỘNG</th>
+                </tr>
+              </thead>
+              <tbody id="threatsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= TAB 2: PROCESS HUNTER ================= -->
+      <section class="tab-page" id="tab-process">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Thợ Săn Tiến Trình & Diệt CoinMiner</h1>
+            <p class="page-desc">Phát hiện tiến trình đào tiền ảo lén lút, mạo danh System32 ngoài vùng WinSxS, chạy từ Temp.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="btnRefreshProcesses">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <span>Quét Tiến Trình RAM</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <div class="card-toolbar">
+            <div class="search-wrap">
+              <input type="text" class="input-search" id="inputFilterProcess" placeholder="Tìm kiếm theo tên tiến trình hoặc PID...">
+            </div>
+            <div class="toolbar-stats" id="processStatsLabel">Đang tải danh sách tiến trình...</div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>PID</th>
+                  <th>TÊN TIẾN TRÌNH</th>
+                  <th>BỘ NHỚ RAM</th>
+                  <th>MỨC ĐỘ</th>
+                  <th>CẢNH BÁO BẢO MẬT</th>
+                  <th>THAO TÁC</th>
+                </tr>
+              </thead>
+              <tbody id="processTableBody">
+                <tr><td colspan="6" class="table-empty">Đang kết nối đến hệ thống...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 3: SYSTEM CLEANER ================= -->
+      <section class="tab-page" id="tab-cleaner">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Dọn Dẹp Rác & Tăng Tốc Hệ Thống</h1>
+            <p class="page-desc">Giải phóng dung lượng ổ C:\, xóa sạch cache ứng dụng, Prefetch, crash dumps và làm mới DNS.</p>
+          </div>
+        </div>
+
+        <div class="cleaner-hero-card">
+          <div class="cleaner-hero-content">
+            <h2>Dọn Dẹp Chuyên Sâu 1-Click</h2>
+            <p>Hệ thống sẽ tự động quét và dọn sạch User Temp, Windows Temp, bộ nhớ Prefetch, Crash Dumps, làm rỗng Thùng Rác và Flush DNS cache.</p>
+            <button class="btn btn-success btn-lg" id="btnRunDeepClean">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Tiến Hành Dọn Dẹp Ngay</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="cleaner-grid">
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">User Temp (%TEMP%)</span>
+              <span class="badge blue">Cache</span>
+            </div>
+            <p class="cleaner-item-desc">Tệp tạm do các ứng dụng văn phòng, trình duyệt và bộ cài đặt sinh ra.</p>
+          </div>
+
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">Windows Temp</span>
+              <span class="badge blue">System</span>
+            </div>
+            <p class="cleaner-item-desc">Tệp tạm của dịch vụ Windows Update và các tiến trình hệ thống cấp cao.</p>
+          </div>
+
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">Windows Prefetch</span>
+              <span class="badge blue">Cache</span>
+            </div>
+            <p class="cleaner-item-desc">Bộ nhớ nạp trước của các ứng dụng cũ đã gỡ cài đặt, làm nghẽn ổ đĩa.</p>
+          </div>
+
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">Crash Dumps & WER</span>
+              <span class="badge blue">Logs</span>
+            </div>
+            <p class="cleaner-item-desc">Bản sao lưu bộ nhớ khi ứng dụng bị lỗi sập gây tốn dung lượng gigabyte.</p>
+          </div>
+
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">Thùng Rác (Recycle Bin)</span>
+              <span class="badge green">Storage</span>
+            </div>
+            <p class="cleaner-item-desc">Làm rỗng thùng rác an toàn để thu hồi tức thì dung lượng ổ đĩa.</p>
+          </div>
+
+          <div class="cleaner-item-card">
+            <div class="cleaner-item-header">
+              <span class="cleaner-item-title">DNS Resolver Cache</span>
+              <span class="badge purple">Network</span>
+            </div>
+            <p class="cleaner-item-desc">Xóa cache tên miền cũ (Flush DNS), giúp tăng tốc mạng và chống nhiễm độc DNS.</p>
+          </div>
+        </div>
+
+        <!-- Cleaner Report (Appears after cleaning) -->
+        <div class="cleaner-report-box hidden" id="cleanerReportBox">
+          <h3 class="report-title">Báo Cáo Kết Quả Dọn Dẹp</h3>
+          <div class="report-stats" id="cleanerStatsText"></div>
+          <div class="report-details" id="cleanerDetailsList"></div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 4: SHIELDS (STARTUP & HOSTS) ================= -->
+      <section class="tab-page" id="tab-shields">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Lá Chắn Khởi Động & Bảo Vệ Hosts</h1>
+            <p class="page-desc">Giám sát các ứng dụng tự khởi động cùng máy tính và ngăn chặn mã độc chiếm quyền DNS qua file Hosts.</p>
+          </div>
+        </div>
+
+        <div class="shields-split">
+          <!-- Startup Inspector -->
+          <div class="content-card shield-card">
+            <div class="card-header-flex">
+              <div>
+                <h3 class="card-sec-title">Ứng Dụng Khởi Động (Startup Inspector)</h3>
+                <p class="card-sec-sub">Rà soát Registry Run Keys (HKCU/HKLM), cảnh báo kịch bản lạ.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btnRefreshStartup">Làm Mới</button>
+            </div>
+            <div class="table-container mini-table">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>TÊN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>LỆNH THỰC THI</th>
+                  </tr>
+                </thead>
+                <tbody id="startupTableBody">
+                  <tr><td colspan="3" class="table-empty">Đang tải dữ liệu...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Hosts Shield -->
+          <div class="content-card shield-card">
+            <div class="card-header-flex">
+              <div>
+                <h3 class="card-sec-title">Bảo Vệ File Hosts (DNS Shield)</h3>
+                <p class="card-sec-sub">Tệp cấu hình tại: C:\Windows\System32\drivers\etc\hosts</p>
+              </div>
+              <button class="btn btn-danger btn-sm" id="btnResetHosts">Khôi Phục Mặc Định</button>
+            </div>
+            <div class="hosts-status-box" id="hostsStatusBox">
+              <div class="hosts-state-indicator" id="hostsIndicator">Đang kiểm tra...</div>
+              <div class="hosts-list" id="hostsListEntries"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 5: QUARANTINE ================= -->
+      <section class="tab-page" id="tab-quarantine">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Khu Vực Cách Ly An Toàn</h1>
+            <p class="page-desc">Nơi lưu giữ các tệp độc hại đã bị cô lập an toàn tại %LOCALAPPDATA%\SCOM_Quarantine.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btnRefreshQuarantine">Làm Mới</button>
+            <button class="btn btn-danger" id="btnWipeQuarantine">Xóa Sạch Vĩnh Viễn</button>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>MÃ ID</th>
+                  <th>TÊN TỆP TIN</th>
+                  <th>MỨC ĐỘ</th>
+                  <th>NGUYÊN NHÂN CÁCH LY</th>
+                  <th>THỜI GIAN</th>
+                  <th>THAO TÁC</th>
+                </tr>
+              </thead>
+              <tbody id="quarantineTableBody">
+                <tr><td colspan="6" class="table-empty">Khu cách ly đang trống.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 6: EICAR TEST LAB ================= -->
+      <section class="tab-page" id="tab-lab">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Phòng Thí Nghiệm Chuẩn EICAR</h1>
+            <p class="page-desc">Tạo tệp thử nghiệm tiêu chuẩn quốc tế an toàn 100% để kiểm chứng sức mạnh của SCOM CyberShield.</p>
+          </div>
+        </div>
+
+        <div class="lab-card">
+          <div class="lab-badge">TIÊU CHUẨN QUỐC TẾ</div>
+          <h2>EICAR Standard Anti-Virus Test File</h2>
+          <p class="lab-desc">
+            EICAR là chuỗi ký tự tiêu chuẩn quốc tế được Tổ chức Nghiên cứu Chống Virus Châu Âu (EICAR) phát triển. 
+            Mọi phần mềm bảo mật uy tín trên toàn thế giới đều nhận diện chuỗi này là mẫu thử nghiệm an toàn, 
+            <strong>hoàn toàn vô hại đối với hệ điều hành và dữ liệu</strong>.
+          </p>
+
+          <div class="lab-actions">
+            <button class="btn btn-primary btn-lg" id="btnGenerateEicar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <span>Tạo Mẫu Thử Nghiệm EICAR</span>
+            </button>
+          </div>
+
+          <div class="lab-notice" id="eicarResultNotice">
+            Nhấn nút trên để tạo tệp thử nghiệm tại thư mục Downloads của bạn. Sau đó quay lại mục <strong>Quét Nhanh</strong> để chứng kiến công cụ phát hiện và cách ly tức thì!
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

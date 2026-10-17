@@ -72,8 +72,8 @@ Hệ thống tách biệt hoàn toàn thành 3 tầng độc lập: **CLI Launch
 - [x] Tích hợp module `engine/cleaner.ps1` dọn dẹp `User Temp`, `Windows Temp`, `Prefetch`, `CrashDumps`, `WER`, `Recycle Bin` và `DNS Cache`.
 
 ### 🚀 Giai đoạn 3 (Tuần 3): Phát triển Giao diện Đồ họa (GUI Dashboard)
-- [ ] Xây dựng tầng giao diện trong `src/` kết nối với `engine/core_scanner.ps1` qua luồng JSON bất đồng bộ.
-- [ ] Thiết kế 5 phân khu chức năng:
+- [x] Xây dựng tầng giao diện trong `src/` kết nối với `engine/core_scanner.ps1` qua luồng JSON bất đồng bộ.
+- [x] Thiết kế 5 phân khu chức năng:
   1. **Bảng điều khiển & Quét Virus (Quick / Custom / Full Scan).**
   2. **Thợ săn Tiến trình (Process Hunter — Theo dõi RAM & Diệt nóng PID).**
   3. **Tối ưu & Dọn rác Hệ thống (1-Click System Cleaner).**

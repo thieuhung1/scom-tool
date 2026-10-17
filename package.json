@@ -1,0 +1,25 @@
+{
+  "name": "scom-cybershield",
+  "version": "3.0.0",
+  "description": "SCOM CyberShield v3.0 - Computer Protection, Virus Scanner & System Cleaner",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "gui": "electron .",
+    "cli": "bin\\run.bat",
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/test_core_scanner.ps1"
+  },
+  "keywords": [
+    "antivirus",
+    "cybersecurity",
+    "cleaner",
+    "windows",
+    "security",
+    "electron"
+  ],
+  "author": "SCOM CyberShield Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
